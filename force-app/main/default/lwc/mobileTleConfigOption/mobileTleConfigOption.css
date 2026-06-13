@@ -1,0 +1,168 @@
+.mtle-cfg-option {
+    border: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: var(--slds-g-color-neutral-base-100, #fff);
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.mtle-cfg-option--selected {
+    border-color: var(--slds-g-color-brand-base-60, #0176d3);
+    background: var(--slds-g-color-brand-base-95, #f0f8ff);
+}
+
+.mtle-cfg-option--required {
+    border-left: 3px solid var(--slds-g-color-brand-base-60, #0176d3);
+}
+
+.mtle-cfg-option-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.mtle-cfg-option-check {
+    flex: 0 0 auto;
+    margin-top: 0.125rem;
+}
+
+.mtle-cfg-option-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.mtle-cfg-option-name {
+    display: block;
+    font-weight: 600;
+    font-size: 0.875rem;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.mtle-cfg-option-code {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--slds-g-color-neutral-base-50, #747474);
+    margin-top: 0.125rem;
+}
+
+.mtle-cfg-option-badges {
+    display: flex;
+    gap: 0.375rem;
+    margin-top: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.mtle-cfg-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    font-size: 0.6875rem;
+    padding: 0.0625rem 0.375rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
+}
+
+.mtle-cfg-badge--required {
+    background: var(--slds-g-color-brand-base-90, #d8edff);
+    color: var(--slds-g-color-brand-base-40, #014486);
+}
+
+.mtle-cfg-badge--nested {
+    background: var(--slds-g-color-neutral-base-95, #f3f3f3);
+    color: var(--slds-g-color-neutral-base-30, #444);
+}
+
+.mtle-cfg-badge-icon {
+    flex: 0 0 auto;
+}
+
+.mtle-cfg-option-price {
+    flex: 0 0 auto;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--slds-g-color-neutral-base-10, #181818);
+    white-space: nowrap;
+}
+
+/* Quantity stepper */
+.mtle-cfg-option-qty {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+    padding-left: 2rem; /* align under name, past checkbox */
+}
+
+.mtle-cfg-option-qty-label {
+    font-size: 0.8125rem;
+    color: var(--slds-g-color-neutral-base-30, #444);
+    margin-right: auto;
+}
+
+.mtle-cfg-stepper {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
+    border-radius: 0.375rem;
+    background: var(--slds-g-color-neutral-base-100, #fff);
+    font-size: 1.125rem;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    color: var(--slds-g-color-neutral-base-30, #444);
+}
+
+.mtle-cfg-stepper:active {
+    background: var(--slds-g-color-neutral-base-90, #ecebea);
+}
+
+.mtle-cfg-stepper[disabled] {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.mtle-cfg-qty-input {
+    width: 3.5rem;
+    text-align: center;
+    border: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
+    border-radius: 0.375rem;
+    padding: 0.25rem;
+    font-size: 0.875rem;
+    -moz-appearance: textfield;
+}
+
+.mtle-cfg-qty-input::-webkit-inner-spin-button,
+.mtle-cfg-qty-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Nested bundle toggle */
+.mtle-cfg-nested-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+    padding: 0.25rem 0;
+    padding-left: 2rem;
+    font-size: 0.8125rem;
+    color: var(--slds-g-color-brand-base-60, #0176d3);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.mtle-cfg-toggle-icon {
+    flex: 0 0 auto;
+}
+
+.mtle-cfg-nested-groups {
+    margin-top: 0.5rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--slds-g-color-border-base-1, #e5e5e5);
+}

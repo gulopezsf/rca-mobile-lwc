@@ -1,0 +1,12 @@
+<template>
+    <div class="mtle-sheet-backdrop" onclick={handleBackdropClick}></div>
+    <div class="mtle-sheet" role="dialog" aria-modal="true">
+        <div class="mtle-sheet-handle" aria-hidden="true"></div>
+        <div class="mtle-sheet-content">
+            <slot></slot>
+        </div>
+        <div class="mtle-sheet-footer">
+            <lightning-button label={label.cancel} onclick={handleClose}></lightning-button>
+        </div>
+    </div>
+</template>

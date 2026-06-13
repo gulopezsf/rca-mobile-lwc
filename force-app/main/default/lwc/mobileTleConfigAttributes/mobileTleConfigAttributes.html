@@ -1,0 +1,55 @@
+<template>
+    <template lwc:if={hasAttributes}>
+        <div class="mtle-cfg-attrs">
+            <button type="button" class="mtle-cfg-attrs-header" onclick={handleToggle}>
+                <lightning-icon icon-name={headerIcon} size="xx-small"
+                    class="mtle-cfg-attrs-chevron"></lightning-icon>
+                <h3 class="mtle-cfg-attrs-title">{label.attributes}</h3>
+                <span class="mtle-cfg-attrs-count">{attributeCount}</span>
+            </button>
+
+            <template lwc:if={showAttributes}>
+                <div class="mtle-cfg-attrs-body">
+                    <template for:each={renderedAttributes} for:item="attr">
+                        <div key={attr.fieldKey} class="mtle-cfg-attr-field">
+                            <!-- Picklist -->
+                            <template lwc:if={attr.isPicklist}>
+                                <lightning-combobox
+                                    name={attr.attributeDefinitionId}
+                                    label={attr.attributeName}
+                                    value={attr.currentValue}
+                                    options={attr.picklistOptions}
+                                    onchange={handleChange}
+                                    data-attr-id={attr.attributeDefinitionId}
+                                    variant="label-stacked"
+                                ></lightning-combobox>
+                            </template>
+                            <!-- Number -->
+                            <template lwc:if={attr.isNumber}>
+                                <lightning-input
+                                    type="number"
+                                    label={attr.attributeName}
+                                    value={attr.currentValue}
+                                    onchange={handleChange}
+                                    data-attr-id={attr.attributeDefinitionId}
+                                    variant="label-stacked"
+                                ></lightning-input>
+                            </template>
+                            <!-- Text (default) -->
+                            <template lwc:if={attr.isText}>
+                                <lightning-input
+                                    type="text"
+                                    label={attr.attributeName}
+                                    value={attr.currentValue}
+                                    onchange={handleChange}
+                                    data-attr-id={attr.attributeDefinitionId}
+                                    variant="label-stacked"
+                                ></lightning-input>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </template>
+</template>

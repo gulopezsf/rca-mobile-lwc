@@ -1,0 +1,80 @@
+<template>
+    <section class="mtle-config-overlay" role="dialog" aria-modal="true">
+        <div class="mtle-config-container">
+            <!-- Header -->
+            <header class="mtle-config-header">
+                <div class="mtle-config-header-left">
+                    <h2 class="mtle-config-title">{label.configureProduct}</h2>
+                    <template lwc:if={productName}>
+                        <p class="mtle-config-product-name">{productName}</p>
+                    </template>
+                </div>
+                <lightning-button-icon
+                    icon-name="utility:close"
+                    alternative-text={label.closeConfigurator}
+                    title={label.close}
+                    onclick={handleClose}
+                    class="mtle-config-close"
+                ></lightning-button-icon>
+            </header>
+
+            <!-- Body -->
+            <div class="mtle-config-body" onoptionchange={handleOptionChange}
+                 onattributechange={handleAttributeChange}>
+
+                <!-- Loading spinner -->
+                <template lwc:if={loading}>
+                    <div class="mtle-config-loading">
+                        <lightning-spinner alternative-text={label.loading} size="medium"></lightning-spinner>
+                    </div>
+                </template>
+
+                <!-- Error state -->
+                <template lwc:if={error}>
+                    <div class="mtle-config-error">
+                        <lightning-icon icon-name="utility:error" variant="error" size="small"></lightning-icon>
+                        <p>{error}</p>
+                    </div>
+                </template>
+
+                <!-- Configuration content -->
+                <template lwc:if={hasContent}>
+                    <!-- Parent attributes -->
+                    <template lwc:if={hasAttributes}>
+                        <c-mobile-tle-config-attributes
+                            attributes={workingAttributes}
+                        ></c-mobile-tle-config-attributes>
+                    </template>
+
+                    <!-- Component groups -->
+                    <template lwc:if={hasGroups}>
+                        <template for:each={workingGroups} for:item="grp">
+                            <c-mobile-tle-config-group
+                                key={grp.groupId}
+                                group={grp}
+                                currency-iso-code={currencyIsoCode}
+                                nesting-level="0"
+                            ></c-mobile-tle-config-group>
+                        </template>
+                    </template>
+                </template>
+            </div>
+
+            <!-- Footer with Save / Close -->
+            <footer class="mtle-config-footer">
+                <lightning-button
+                    label={label.close}
+                    onclick={handleClose}
+                ></lightning-button>
+                <lightning-button
+                    variant="brand"
+                    label={saveLabel}
+                    onclick={handleSave}
+                    disabled={saveDisabled}
+                    class="mtle-config-save-btn"
+                ></lightning-button>
+            </footer>
+        </div>
+    </section>
+    <div class="mtle-config-backdrop"></div>
+</template>

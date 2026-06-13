@@ -1,0 +1,76 @@
+.mtle-cfg-group {
+    border: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
+    border-radius: 0.75rem;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    background: var(--slds-g-color-neutral-base-100, #fff);
+}
+
+.mtle-cfg-group--error {
+    border-color: var(--slds-g-color-error-base-40, #ea001e);
+}
+
+.mtle-cfg-group--nested {
+    border-width: 1px;
+    margin-left: 0.5rem;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.mtle-cfg-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--slds-g-color-neutral-base-95, #f3f3f3);
+    border: none;
+    cursor: pointer;
+    text-align: left;
+}
+
+.mtle-cfg-group-chevron {
+    flex: 0 0 auto;
+}
+
+.mtle-cfg-group-name {
+    flex: 1 1 auto;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--slds-g-color-neutral-base-10, #181818);
+    margin: 0;
+}
+
+.mtle-cfg-group-counter {
+    flex: 0 0 auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.125rem 0.5rem;
+    border-radius: 1rem;
+    background: var(--slds-g-color-brand-base-90, #d8edff);
+    color: var(--slds-g-color-brand-base-40, #014486);
+}
+
+.mtle-cfg-group-counter--error {
+    background: var(--slds-g-color-error-base-95, #fef1f1);
+    color: var(--slds-g-color-error-base-40, #ea001e);
+}
+
+.mtle-cfg-group-hint {
+    padding: 0.25rem 1rem 0.5rem;
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--slds-g-color-neutral-base-50, #747474);
+}
+
+.mtle-cfg-group-error {
+    padding: 0.25rem 1rem 0.5rem;
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--slds-g-color-error-base-40, #ea001e);
+    font-weight: 500;
+}
+
+.mtle-cfg-group-options {
+    padding: 0.5rem 0.75rem 0.75rem;
+}

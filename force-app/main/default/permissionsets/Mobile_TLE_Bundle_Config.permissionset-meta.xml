@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Grants field-level edit access to QuoteLineItem.ParentQuoteLineItemId, required by the Mobile TLE Bundle Configurator to create child lines via PlaceQuote.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Mobile TLE Bundle Config</label>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>QuoteLineItem.ParentQuoteLineItemId</field>
+        <readable>true</readable>
+    </fieldPermissions>
+</PermissionSet>

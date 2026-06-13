@@ -1,0 +1,35 @@
+<template>
+    <div class={groupClass}>
+        <!-- Group header: name + selection counter + collapse -->
+        <button type="button" class="mtle-cfg-group-header" onclick={handleToggleCollapse}>
+            <lightning-icon icon-name={headerIcon} size="xx-small"
+                class="mtle-cfg-group-chevron"></lightning-icon>
+            <h3 class="mtle-cfg-group-name">{groupName}</h3>
+            <span class={counterClass}>{selectedCountLabel}</span>
+        </button>
+
+        <!-- Selection hint -->
+        <template lwc:if={selectionHint}>
+            <p class="mtle-cfg-group-hint">{selectionHint}</p>
+        </template>
+
+        <!-- Validation error -->
+        <template lwc:if={hasValidationError}>
+            <p class="mtle-cfg-group-error">{validationMessage}</p>
+        </template>
+
+        <!-- Options list -->
+        <template lwc:if={showOptions}>
+            <div class="mtle-cfg-group-options">
+                <template for:each={options} for:item="opt">
+                    <c-mobile-tle-config-option
+                        key={opt.productRelatedComponentId}
+                        option={opt}
+                        currency-iso-code={currencyIsoCode}
+                        nesting-level={nestingLevel}
+                    ></c-mobile-tle-config-option>
+                </template>
+            </div>
+        </template>
+    </div>
+</template>

@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Translations xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customLabels>
+        <label>Sucesso</label>
+        <name>MTLE_Success</name>
+    </customLabels>
+    <customLabels>
+        <label>Erro</label>
+        <name>MTLE_Error</name>
+    </customLabels>
+    <customLabels>
+        <label>Info</label>
+        <name>MTLE_Info</name>
+    </customLabels>
+    <customLabels>
+        <label>Carregando</label>
+        <name>MTLE_Loading</name>
+    </customLabels>
+    <customLabels>
+        <label>Cancelar</label>
+        <name>MTLE_Cancel</name>
+    </customLabels>
+    <customLabels>
+        <label>Fechar</label>
+        <name>MTLE_Close</name>
+    </customLabels>
+    <customLabels>
+        <label>Salvar</label>
+        <name>MTLE_Save</name>
+    </customLabels>
+    <customLabels>
+        <label>(Sem nome)</label>
+        <name>MTLE_NoName</name>
+    </customLabels>
+    <customLabels>
+        <label>Sim</label>
+        <name>MTLE_Yes</name>
+    </customLabels>
+    <customLabels>
+        <label>Não</label>
+        <name>MTLE_No</name>
+    </customLabels>
+    <customLabels>
+        <label>Erro desconhecido</label>
+        <name>MTLE_UnknownError</name>
+    </customLabels>
+    <customLabels>
+        <label>Linhas da Cotação</label>
+        <name>MTLE_QuoteLines</name>
+    </customLabels>
+    <customLabels>
+        <label>Adicionar Produto</label>
+        <name>MTLE_AddProduct</name>
+    </customLabels>
+    <customLabels>
+        <label>Atualizar</label>
+        <name>MTLE_Refresh</name>
+    </customLabels>
+    <customLabels>
+        <label>Sem linhas de cotação</label>
+        <name>MTLE_NoQuoteLines</name>
+    </customLabels>
+    <customLabels>
+        <label>Pressione «Adicionar Produto» para começar</label>
+        <name>MTLE_PressAddToStart</name>
+    </customLabels>
+    <customLabels>
+        <label>Adicionando</label>
+        <name>MTLE_Adding</name>
+    </customLabels>
+    <customLabels>
+        <label>Adicionando {0} (×{1})…</label>
+        <name>MTLE_AddingProductQty</name>
+    </customLabels>
+    <customLabels>
+        <label>Ver detalhe</label>
+        <name>MTLE_ViewDetail</name>
+    </customLabels>
+    <customLabels>
+        <label>Clonar linha</label>
+        <name>MTLE_CloneLine</name>
+    </customLabels>
+    <customLabels>
+        <label>Configurar</label>
+        <name>MTLE_Configure</name>
+    </customLabels>
+    <customLabels>
+        <label>Excluir</label>
+        <name>MTLE_Delete</name>
+    </customLabels>
+    <customLabels>
+        <label>Excluir esta linha da cotação?</label>
+        <name>MTLE_ConfirmDeleteLine</name>
+    </customLabels>
+    <customLabels>
+        <label>Excluir linha</label>
+        <name>MTLE_DeleteLineHeader</name>
+    </customLabels>
+    <customLabels>
+        <label>Linha excluída</label>
+        <name>MTLE_LineDeleted</name>
+    </customLabels>
+    <customLabels>
+        <label>Linha clonada</label>
+        <name>MTLE_LineCloned</name>
+    </customLabels>
+    <customLabels>
+        <label>Campo atualizado</label>
+        <name>MTLE_FieldUpdated</name>
+    </customLabels>
+    <customLabels>
+        <label>{0} adicionado à cotação</label>
+        <name>MTLE_ProductAddedToQuote</name>
+    </customLabels>
+    <customLabels>
+        <label>{0} (bundle completo) adicionado à cotação</label>
+        <name>MTLE_BundleAddedToQuote</name>
+    </customLabels>
+    <customLabels>
+        <label>Não foi possível adicionar {0}: {1}</label>
+        <name>MTLE_CouldNotAdd</name>
+    </customLabels>
+    <customLabels>
+        <label>(cópia)</label>
+        <name>MTLE_CopySuffix</name>
+    </customLabels>
+    <customLabels>
+        <label>Nenhum fluxo de configuração disponível.</label>
+        <name>MTLE_NoConfigFlowAvailable</name>
+    </customLabels>
+    <customLabels>
+        <label>Bundle</label>
+        <name>MTLE_Bundle</name>
+    </customLabels>
+    <customLabels>
+        <label>Configurável</label>
+        <name>MTLE_Configurable</name>
+    </customLabels>
+    <customLabels>
+        <label>Ocultar componentes</label>
+        <name>MTLE_HideComponents</name>
+    </customLabels>
+    <customLabels>
+        <label>Ver {0} componentes</label>
+        <name>MTLE_ViewNComponents</name>
+    </customLabels>
+    <customLabels>
+        <label>Modelo de venda</label>
+        <name>MTLE_SellingModel</name>
+    </customLabels>
+    <customLabels>
+        <label>Quantidade:</label>
+        <name>MTLE_Quantity</name>
+    </customLabels>
+    <customLabels>
+        <label>Diminuir quantidade</label>
+        <name>MTLE_DecreaseQty</name>
+    </customLabels>
+    <customLabels>
+        <label>Aumentar quantidade</label>
+        <name>MTLE_IncreaseQty</name>
+    </customLabels>
+    <customLabels>
+        <label>Adicionando…</label>
+        <name>MTLE_AddingEllipsis</name>
+    </customLabels>
+    <customLabels>
+        <label>Adicionar Bundle Completo</label>
+        <name>MTLE_AddFullBundle</name>
+    </customLabels>
+    <customLabels>
+        <label>Adicionar à Cotação</label>
+        <name>MTLE_AddToQuote</name>
+    </customLabels>
+    <customLabels>
+        <label>Esta cotação não tem Price Book atribuído.</label>
+        <name>MTLE_NoPricebookWarning</name>
+    </customLabels>
+    <customLabels>
+        <label>Selecione um Price Book</label>
+        <name>MTLE_SelectPricebook</name>
+    </customLabels>
+    <customLabels>
+        <label>Escolher Price Book</label>
+        <name>MTLE_ChoosePricebook</name>
+    </customLabels>
+    <customLabels>
+        <label>Atribuir</label>
+        <name>MTLE_Assign</name>
+    </customLabels>
+    <customLabels>
+        <label>Buscar produto</label>
+        <name>MTLE_SearchProduct</name>
+    </customLabels>
+    <customLabels>
+        <label>Buscar produto (mín. 2 caracteres)…</label>
+        <name>MTLE_SearchProductPlaceholder</name>
+    </customLabels>
+    <customLabels>
+        <label>Catálogo</label>
+        <name>MTLE_Catalog</name>
+    </customLabels>
+    <customLabels>
+        <label>Selecione catálogo</label>
+        <name>MTLE_SelectCatalog</name>
+    </customLabels>
+    <customLabels>
+        <label>Categoria</label>
+        <name>MTLE_Category</name>
+    </customLabels>
+    <customLabels>
+        <label>Selecione categoria</label>
+        <name>MTLE_SelectCategory</name>
+    </customLabels>
+    <customLabels>
+        <label>Listar produtos</label>
+        <name>MTLE_ListProducts</name>
+    </customLabels>
+    <customLabels>
+        <label>Buscando</label>
+        <name>MTLE_Searching</name>
+    </customLabels>
+    <customLabels>
+        <label>◀ Anterior</label>
+        <name>MTLE_Previous</name>
+    </customLabels>
+    <customLabels>
+        <label>Próximo ▶</label>
+        <name>MTLE_Next</name>
+    </customLabels>
+    <customLabels>
+        <label>Selecione catálogo e categoria para ver produtos, ou busque por nome.</label>
+        <name>MTLE_SelectCatalogAndCategory</name>
+    </customLabels>
+    <customLabels>
+        <label>Selecione catálogo e categoria</label>
+        <name>MTLE_SelectCatalogAndCategoryShort</name>
+    </customLabels>
+    <customLabels>
+        <label>Página {0} de {1}</label>
+        <name>MTLE_PageNofM</name>
+    </customLabels>
+    <customLabels>
+        <label>Ações da linha</label>
+        <name>MTLE_LineActions</name>
+    </customLabels>
+    <customLabels>
+        <label>Ações</label>
+        <name>MTLE_Actions</name>
+    </customLabels>
+    <customLabels>
+        <label>Editar quantidade</label>
+        <name>MTLE_EditQuantity</name>
+    </customLabels>
+    <customLabels>
+        <label>Editar desconto</label>
+        <name>MTLE_EditDiscount</name>
+    </customLabels>
+    <customLabels>
+        <label>Menos</label>
+        <name>MTLE_Less</name>
+    </customLabels>
+    <customLabels>
+        <label>Mais</label>
+        <name>MTLE_More</name>
+    </customLabels>
+    <customLabels>
+        <label>Qtd:</label>
+        <name>MTLE_QtyShort</name>
+    </customLabels>
+    <customLabels>
+        <label>Desc:</label>
+        <name>MTLE_DiscountShort</name>
+    </customLabels>
+    <customLabels>
+        <label>Expandir</label>
+        <name>MTLE_Expand</name>
+    </customLabels>
+    <customLabels>
+        <label>Recolher</label>
+        <name>MTLE_Collapse</name>
+    </customLabels>
+    <customLabels>
+        <label>{0} item{1}</label>
+        <name>MTLE_NItems</name>
+    </customLabels>
+    <customLabels>
+        <label>Configurar produto</label>
+        <name>MTLE_ConfigureProduct</name>
+    </customLabels>
+    <customLabels>
+        <label>Fechar configurador</label>
+        <name>MTLE_CloseConfigurator</name>
+    </customLabels>
+    <customLabels>
+        <label>Produto</label>
+        <name>MTLE_Product</name>
+    </customLabels>
+    <customLabels>
+        <label>{0} (bundle com {1} componentes)</label>
+        <name>MTLE_BundleWithNComponents</name>
+    </customLabels>
+</Translations>

@@ -1,0 +1,102 @@
+<template>
+    <div class="mtle-prod-card">
+        <!-- Top: Image + Name + Price -->
+        <div class="mtle-prod-top">
+            <template if:true={hasImage}>
+                <div class="mtle-prod-img-wrap">
+                    <img src={productImage} alt={productName} class="mtle-prod-img" loading="lazy"/>
+                </div>
+            </template>
+            <template if:false={hasImage}>
+                <div class="mtle-prod-img-placeholder">
+                    <lightning-icon icon-name="standard:product" size="small"></lightning-icon>
+                </div>
+            </template>
+            <div class="mtle-prod-info">
+                <span class="mtle-prod-name">{productName}</span>
+                <template if:true={productCode}>
+                    <span class="mtle-prod-code">{productCode}</span>
+                </template>
+                <!-- Badges: Bundle / Configurable -->
+                <template if:true={showBadges}>
+                    <div class="mtle-prod-badges">
+                        <template if:true={isBundle}>
+                            <span class="mtle-badge mtle-badge-bundle">
+                                <lightning-icon icon-name="utility:package" size="xx-small"
+                                    class="mtle-badge-icon"></lightning-icon>
+                                {label.bundle}
+                            </span>
+                        </template>
+                        <template if:true={isConfigurable}>
+                            <span class="mtle-badge mtle-badge-config">
+                                <lightning-icon icon-name="utility:settings" size="xx-small"
+                                    class="mtle-badge-icon"></lightning-icon>
+                                {label.configurable}
+                            </span>
+                        </template>
+                    </div>
+                </template>
+                <div class="mtle-prod-price-row">
+                    <span class="mtle-prod-price">{displayPrice}</span>
+                    <template if:true={sellingModelLabel}>
+                        <span class="mtle-prod-model"> · {sellingModelLabel}</span>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bundle children toggle -->
+        <template if:true={hasBundleChildren}>
+            <button type="button" class="mtle-children-toggle" onclick={handleToggleChildren}>
+                <lightning-icon icon-name={childrenToggleIcon} size="xx-small"
+                    class="mtle-toggle-icon"></lightning-icon>
+                <span>{childrenToggleLabel}</span>
+            </button>
+            <template if:true={showChildren}>
+                <div class="mtle-children-list">
+                    <template for:each={bundleChildren} for:item="child">
+                        <div key={child.product2Id} class="mtle-child-item">
+                            <lightning-icon icon-name="utility:check" size="xx-small"
+                                class="mtle-child-icon" variant="success"></lightning-icon>
+                            <span class="mtle-child-name">{child.productName}</span>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </template>
+
+        <!-- Selling model selector -->
+        <template if:true={hasSellingModels}>
+            <div class="mtle-prod-selling-model">
+                <lightning-combobox
+                    name="sellingModel"
+                    label={label.sellingModel}
+                    value={selectedSellingModelId}
+                    options={sellingModelOptions}
+                    onchange={handleSellingModelChange}
+                    variant="label-stacked"
+                ></lightning-combobox>
+            </div>
+        </template>
+
+        <!-- Quantity stepper -->
+        <div class="mtle-prod-qty-row">
+            <span class="mtle-prod-qty-label">{label.quantity}</span>
+            <button type="button" class="mtle-prod-stepper" onclick={handleQtyMinus}
+                aria-label={label.decreaseQty}>−</button>
+            <input type="number" class="mtle-prod-qty-input" value={quantity}
+                min="1" step="1" onchange={handleQtyChange}/>
+            <button type="button" class="mtle-prod-stepper" onclick={handleQtyPlus}
+                aria-label={label.increaseQty}>+</button>
+        </div>
+
+        <!-- Add button -->
+        <lightning-button
+            variant="brand"
+            label={addButtonLabel}
+            onclick={handleAdd}
+            disabled={addButtonDisabled}
+            class="mtle-prod-add-btn"
+        ></lightning-button>
+    </div>
+</template>

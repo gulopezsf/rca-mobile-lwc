@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Quote Line Bundle Editor</masterLabel>
+    <description>Quote lines with bundle hierarchy, column list from App Builder only, optional add-products search (price book), mobile + desktop.</description>
+    <targets>
+        <target>lightning__RecordPage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__RecordPage">
+            <supportedFormFactors>
+                <supportedFormFactor type="Small" />
+                <supportedFormFactor type="Large" />
+            </supportedFormFactors>
+            <objects>
+                <object>Quote</object>
+            </objects>
+            <property
+                name="displayColumns"
+                type="String"
+                label="Display columns"
+                default="ProductName,Quantity,UnitPrice,NetUnitPrice,NetTotalPrice"
+                description="Solo editable aquí (Lightning App Builder). API names separados por coma o salto de línea; deben estar en el Field Set (ProductName = nombre del producto). Vacío = mismo orden por defecto del componente."
+            />
+            <property
+                name="fieldSetName"
+                type="String"
+                label="Field Set API Name"
+                default="Quote_Line_Editor_Columns"
+                description="QuoteLineItem field set: lista blanca de columnas permitidas."
+            />
+            <property
+                name="hideRuntimeColumnPicker"
+                type="Boolean"
+                default="true"
+                label="Hide runtime column picker (deprecated)"
+                description="El selector de columnas en tiempo de ejecución ya no existe; las columnas solo se configuran con Display columns. Se mantiene por compatibilidad con páginas existentes."
+            />
+            <property
+                name="hideAddProducts"
+                type="Boolean"
+                default="false"
+                label="Hide add products"
+                description="If true, hides the product search / add line section."
+            />
+            <property
+                name="configuratorFlowApiName"
+                type="String"
+                label="Configurator Flow API Name (fallback)"
+                description="Fallback Flow API name when ProductConfigurationFlow is not assigned to a product. The primary flow is resolved per-product from ProductConfigFlowAssignment."
+            />
+            <property
+                name="configuratorFlowInputVariableName"
+                type="String"
+                default="recordId"
+                label="Configurator Flow input variable name"
+                description="Flow input variable that receives the QuoteLineItem Id."
+            />
+            <property name="showDetailAction" type="Boolean" default="true" label="Show View detail" />
+            <property name="showConfigureAction" type="Boolean" default="true" label="Show Configure" description="Master toggle. When true, 'Configurar' appears on rows whose product has an active ProductConfigurationFlow." />
+            <property name="showDeleteAction" type="Boolean" default="true" label="Show Delete" />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

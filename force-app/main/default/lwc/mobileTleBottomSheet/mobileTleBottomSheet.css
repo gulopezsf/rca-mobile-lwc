@@ -1,0 +1,46 @@
+.mtle-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 10000003;
+}
+
+.mtle-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10000004;
+    background: var(--slds-g-color-neutral-base-100, #fff);
+    border-radius: 1rem 1rem 0 0;
+    padding: 0.5rem 0 0;
+    max-height: 70vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+    animation: mtleSlideUp 0.25s ease-out;
+}
+
+@keyframes mtleSlideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+.mtle-sheet-handle {
+    width: 2.5rem;
+    height: 0.25rem;
+    border-radius: 0.125rem;
+    background: var(--slds-g-color-neutral-base-80, #c9c9c9);
+    margin: 0 auto 0.75rem;
+}
+
+.mtle-sheet-content {
+    padding: 0 1rem;
+}
+
+.mtle-sheet-footer {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
+    margin-top: 0.5rem;
+    text-align: center;
+}

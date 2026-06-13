@@ -1,0 +1,31 @@
+<template>
+    <div class="mtle-line-list" role="list">
+        <template for:each={displayRows} for:item="row">
+            <div key={row.id} class={row.wrapperClass} role="listitem">
+                <!-- Bundle collapse toggle -->
+                <template if:true={row.isBundleParent}>
+                    <div class="mtle-toggle-row">
+                        <lightning-button-icon
+                            icon-name={row.chevronIcon}
+                            alternative-text={row.chevronAlt}
+                            title={row.chevronAlt}
+                            variant="bare"
+                            size="small"
+                            class="mtle-toggle-btn"
+                            data-rowid={row.id}
+                            onclick={handleToggle}
+                        ></lightning-button-icon>
+                        <span class="mtle-child-count">{row.childLabel}</span>
+                    </div>
+                </template>
+
+                <c-mobile-tle-line-card
+                    line={row}
+                    currency-iso-code={currencyIsoCode}
+                    onaction={handleCardAction}
+                    oninlineedit={handleCardInlineEdit}
+                ></c-mobile-tle-line-card>
+            </div>
+        </template>
+    </div>
+</template>

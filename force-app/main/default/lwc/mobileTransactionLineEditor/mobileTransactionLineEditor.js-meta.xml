@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <targets>
+        <target>lightning__RecordPage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__RecordPage">
+            <objects>
+                <object>Quote</object>
+            </objects>
+            <supportedFormFactors>
+                <supportedFormFactor type="Small"/>
+                <supportedFormFactor type="Large"/>
+            </supportedFormFactors>
+            <property name="fieldSetName" type="String" default="Quote_Line_Editor_Columns"
+                label="Field Set Name" description="API name of the FieldSet on QuoteLineItem"/>
+            <property name="hideAddProducts" type="Boolean" default="false"
+                label="Hide Add Products" description="Hide the Add Products button"/>
+            <property name="configuratorFlowApiName" type="String"
+                label="Configurator Flow API Name (deprecated)" description="No longer used. Bundle configuration is now built-in."/>
+            <property name="defaultPageSize" type="Integer" default="6"
+                label="Products Per Page" description="Number of products per page in the browser"/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

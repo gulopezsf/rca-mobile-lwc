@@ -1,0 +1,157 @@
+.qle-spinner {
+    min-height: 6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qle-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.qle-row {
+    border: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
+    border-radius: 0.25rem;
+    padding: 0.5rem 0.65rem;
+    background: var(--slds-g-color-neutral-base-100, #fff);
+}
+
+.qle-row-main {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.35rem;
+    width: 100%;
+}
+
+.qle-collapse-btn {
+    margin-top: 0.1rem;
+    flex: 0 0 auto;
+}
+
+.qle-collapse-spacer {
+    width: 1.25rem;
+    flex: 0 0 1.25rem;
+}
+
+.qle-row-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    margin: 0;
+    padding-top: 0.1rem;
+}
+
+.qle-cells {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 0.5rem 1rem;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+@media (max-width: 48rem) {
+    .qle-cells {
+        grid-template-columns: 1fr;
+    }
+}
+
+.qle-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.qle-cell-label {
+    font-size: 0.75rem;
+    color: var(--slds-g-color-neutral-base-30, #706e6b);
+}
+
+.qle-cell-value {
+    font-size: 0.875rem;
+    word-break: break-word;
+}
+
+/* Por encima de cabeceras / cards de Lightning Experience y Salesforce Mobile */
+section.qle-modal.slds-modal {
+    z-index: 10000001;
+}
+
+.qle-modal + .slds-backdrop {
+    z-index: 10000000;
+}
+
+.qle-flow-body {
+    min-height: 12rem;
+    max-height: 80vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.qle-flow-modal .slds-modal__container {
+    width: 95%;
+    max-width: 60rem;
+}
+
+@media (max-width: 48rem) {
+    .qle-flow-modal .slds-modal__container {
+        width: 100%;
+        max-width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        border-radius: 0;
+    }
+    .qle-flow-body {
+        max-height: none;
+        min-height: 60vh;
+    }
+}
+
+.qle-add {
+    border-bottom: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
+}
+
+.qle-catalog-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.qle-catalog-summary {
+    flex: 1 1 12rem;
+    color: var(--slds-g-color-neutral-base-30, #706e6b);
+}
+
+.qle-search-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.qle-search-spinner {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 0;
+}
+
+.qle-search-results {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 14rem;
+    overflow: auto;
+}
+
+.qle-pick-btn {
+    text-align: start;
+    white-space: normal;
+    line-height: 1.35;
+    min-height: 2rem;
+}

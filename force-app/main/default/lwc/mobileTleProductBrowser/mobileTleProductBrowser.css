@@ -1,0 +1,165 @@
+/* ─── Mobile: Full-screen overlay (default) ─────────────────────────── */
+.mtle-browser-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000002;
+    display: flex;
+    flex-direction: column;
+    background: var(--slds-g-color-neutral-base-100, #fff);
+    overflow: hidden;
+}
+
+.mtle-browser-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10000001;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.mtle-browser-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ─── Desktop: Inline panel (not full-screen) ────────────────────────── */
+@media (min-width: 64rem) {
+    .mtle-browser-overlay {
+        position: relative;
+        inset: auto;
+        z-index: auto;
+        border: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
+        border-radius: 0.5rem;
+        max-height: 80vh;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .mtle-browser-backdrop {
+        display: none;
+    }
+
+    .mtle-browser-container {
+        max-height: 80vh;
+    }
+}
+
+/* ─── Header ─────────────────────────────────────────────────────────── */
+.mtle-browser-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
+    flex: 0 0 auto;
+    background: var(--slds-g-color-neutral-base-100, #fff);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.mtle-browser-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--slds-g-color-neutral-base-10, #181818);
+}
+
+.mtle-browser-close {
+    flex: 0 0 auto;
+}
+
+/* ─── Search ─────────────────────────────────────────────────────────── */
+.mtle-browser-search {
+    padding: 0.75rem 1rem 0.5rem;
+    flex: 0 0 auto;
+}
+
+/* ─── Filters ────────────────────────────────────────────────────────── */
+.mtle-browser-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0 1rem 0.75rem;
+    align-items: flex-end;
+}
+
+.mtle-filter-combo {
+    flex: 1 1 10rem;
+    min-width: 0;
+}
+
+.mtle-list-btn {
+    flex: 0 0 auto;
+}
+
+/* ─── Product list ───────────────────────────────────────────────────── */
+.mtle-product-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    flex: 1 1 auto;
+}
+
+/* Desktop: product cards in a 2-column grid */
+@media (min-width: 64rem) {
+    .mtle-product-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+}
+
+/* ─── Pagination ─────────────────────────────────────────────────────── */
+.mtle-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem 1rem;
+    flex: 0 0 auto;
+}
+
+.mtle-page-info {
+    font-size: 0.8125rem;
+    color: var(--slds-g-color-neutral-base-30, #706e6b);
+}
+
+/* ─── No products ────────────────────────────────────────────────────── */
+.mtle-no-products {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 8rem;
+}
+
+/* ─── Spinner ────────────────────────────────────────────────────────── */
+.mtle-browser-spinner {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+    flex: 1 1 auto;
+    align-items: center;
+}
+
+/* ─── Pricebook picker ───────────────────────────────────────────────── */
+.mtle-pricebook-picker {
+    padding: 2rem 1.5rem;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* ─── Loading overlay ────────────────────────────────────────────────── */
+.mtle-browser-loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.7);
+    z-index: 2;
+}

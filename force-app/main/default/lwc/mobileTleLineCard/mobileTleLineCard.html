@@ -1,0 +1,87 @@
+<template>
+    <div class={cardClass}>
+        <div class="mtle-card-top">
+            <!-- Product image -->
+            <template if:true={hasImage}>
+                <div class="mtle-card-img-wrap">
+                    <img src={productImage} alt={productName} class="mtle-card-img" loading="lazy"/>
+                </div>
+            </template>
+            <template if:false={hasImage}>
+                <div class="mtle-card-img-placeholder">
+                    <lightning-icon icon-name="standard:product" size="small"></lightning-icon>
+                </div>
+            </template>
+
+            <!-- Product info -->
+            <div class="mtle-card-info">
+                <span class="mtle-card-name">{productName}</span>
+                <template if:true={hasSellingModel}>
+                    <span class="mtle-card-model">{sellingModelLabel}</span>
+                </template>
+                <div class="mtle-card-prices">
+                    <span class="mtle-card-price">{displayNetUnitPrice}</span>
+                    <template if:true={hasDiscount}>
+                        <span class="mtle-card-discount-badge">{displayDiscount}</span>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Action menu button -->
+            <button type="button" class="mtle-card-action-btn" onclick={handleActionTap}
+                title={label.actions} aria-label={label.lineActions}>
+                <lightning-icon icon-name="utility:threedots_vertical" size="x-small"></lightning-icon>
+            </button>
+        </div>
+
+        <!-- Bottom row: Qty + Total -->
+        <div class="mtle-card-bottom">
+            <!-- Quantity (tap to edit) -->
+            <template if:false={editingQty}>
+                <button type="button" class="mtle-qty-display" onclick={handleQtyTap}
+                    title={label.editQty}>
+                    {label.qtyShort} <strong>{displayQuantity}</strong>
+                </button>
+            </template>
+            <template if:true={editingQty}>
+                <div class="mtle-qty-editor">
+                    <button type="button" class="mtle-stepper-btn" onclick={handleQtyMinus}
+                        aria-label={label.less}>−</button>
+                    <input type="number" class="mtle-qty-input" value={editQtyValue}
+                        min="1" step="1" onchange={handleQtyChange}/>
+                    <button type="button" class="mtle-stepper-btn" onclick={handleQtyPlus}
+                        aria-label={label.more}>+</button>
+                    <lightning-button-icon icon-name="utility:check" alternative-text={label.save}
+                        size="small" onclick={handleQtySave} variant="brand"></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:close" alternative-text={label.cancel}
+                        size="small" onclick={handleQtyCancel}></lightning-button-icon>
+                </div>
+            </template>
+
+            <!-- Discount (tap to edit) -->
+            <template if:false={editingDiscount}>
+                <button type="button" class="mtle-discount-display" onclick={handleDiscountTap}
+                    title={label.editDiscount}>
+                    {label.discountShort} <strong>{displayDiscount}</strong>
+                    <template if:false={hasDiscount}>
+                        <strong>0%</strong>
+                    </template>
+                </button>
+            </template>
+            <template if:true={editingDiscount}>
+                <div class="mtle-discount-editor">
+                    <input type="number" class="mtle-discount-input" value={editDiscountValue}
+                        min="0" max="100" step="0.5" onchange={handleDiscountChange}/>
+                    <span>%</span>
+                    <lightning-button-icon icon-name="utility:check" alternative-text={label.save}
+                        size="small" onclick={handleDiscountSave} variant="brand"></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:close" alternative-text={label.cancel}
+                        size="small" onclick={handleDiscountCancel}></lightning-button-icon>
+                </div>
+            </template>
+
+            <!-- Total -->
+            <span class="mtle-card-total">{displayNetTotalPrice}</span>
+        </div>
+    </div>
+</template>

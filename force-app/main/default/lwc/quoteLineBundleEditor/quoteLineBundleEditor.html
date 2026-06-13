@@ -1,0 +1,213 @@
+<template>
+    <lightning-card title="Quote lines" icon-name="standard:quotes">
+        <div slot="actions">
+            <lightning-button label="Refresh" onclick={handleRefresh}></lightning-button>
+        </div>
+
+        <template if:true={loading}>
+            <div class="qle-spinner">
+                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <template if:false={loading}>
+            <template if:true={error}>
+                <div class="slds-text-color_error slds-p-around_small">{error}</div>
+            </template>
+
+            <template if:false={error}>
+                <template if:true={showAddSection}>
+                    <div class="qle-add slds-p-horizontal_small slds-p-bottom_small">
+                        <div class="qle-catalog-toolbar">
+                            <lightning-button
+                                variant="neutral"
+                                label="Catálogo y categoría"
+                                title="Elegir catálogo y categoría para buscar o listar productos"
+                                onclick={openCatalogModal}
+                            ></lightning-button>
+                            <span class="qle-catalog-summary slds-text-body_small">{catalogContextSummary}</span>
+                        </div>
+                        <lightning-input
+                            type="search"
+                            label="Add product"
+                            placeholder="Type at least 2 characters…"
+                            value={searchTerm}
+                            oninput={handleSearchInput}
+                            field-level-help={addHelpText}
+                        ></lightning-input>
+                        <div class="qle-search-actions slds-m-top_x-small">
+                            <lightning-button
+                                variant="neutral"
+                                label="Listar productos"
+                                title="Mostrar productos del price book en la categoría seleccionada"
+                                onclick={handleListProducts}
+                                disabled={listProductsDisabled}
+                            ></lightning-button>
+                        </div>
+                        <template if:true={searchLoading}>
+                            <div class="qle-search-spinner">
+                                <lightning-spinner alternative-text="Searching" size="small"></lightning-spinner>
+                            </div>
+                        </template>
+                        <template if:true={hasSearchResults}>
+                            <ul class="qle-search-results">
+                                <template for:each={searchResults} for:item="hit">
+                                    <li key={hit.pricebookEntryId} class="qle-search-hit" data-pbeid={hit.pricebookEntryId}>
+                                        <button
+                                            type="button"
+                                            class="slds-button slds-button_neutral slds-button_stretch qle-pick-btn"
+                                            onclick={handlePickProduct}
+                                        >
+                                            {hit.displayLabel}
+                                        </button>
+                                    </li>
+                                </template>
+                            </ul>
+                        </template>
+                    </div>
+                </template>
+                <template if:true={hasRows}>
+                    <div class="qle-list" role="list">
+                        <template for:each={displayRows} for:item="row">
+                            <div key={row.id} class="qle-row" role="listitem" style={row.styleString}>
+                                <div class="qle-row-main">
+                                    <template if:true={row.hasChildren}>
+                                        <lightning-button-icon
+                                            icon-name={row.collapseIcon}
+                                            alternative-text={row.collapseAltText}
+                                            title={row.collapseAltText}
+                                            variant="bare"
+                                            size="small"
+                                            class="qle-collapse-btn"
+                                            data-rowid={row.id}
+                                            onclick={handleToggleRow}
+                                        ></lightning-button-icon>
+                                    </template>
+                                    <template if:false={row.hasChildren}>
+                                        <span class="qle-collapse-spacer" aria-hidden="true"></span>
+                                    </template>
+                                    <div class="qle-cells">
+                                    <template for:each={row.cells} for:item="cell">
+                                        <div key={cell.apiName} class="qle-cell">
+                                            <span class="qle-cell-label">{cell.label}</span>
+                                            <span class="qle-cell-value">{cell.display}</span>
+                                        </div>
+                                    </template>
+                                    </div>
+                                    <template if:true={row.hasActions}>
+                                        <div class="qle-row-toolbar">
+                                            <lightning-button-menu
+                                                alternative-text="Acciones de línea"
+                                                variant="border-filled"
+                                                menu-alignment="right"
+                                                onselect={handleMenuSelect}
+                                            >
+                                                <lightning-menu-item
+                                                    if:true={row.showRowDetail}
+                                                    value={row.menuDetailValue}
+                                                    label="Ver detalle"
+                                                ></lightning-menu-item>
+                                                <lightning-menu-item
+                                                    if:true={row.showRowConfigure}
+                                                    value={row.menuConfigureValue}
+                                                    label="Configurar"
+                                                ></lightning-menu-item>
+                                                <lightning-menu-item
+                                                    if:true={row.showRowDelete}
+                                                    value={row.menuDeleteValue}
+                                                    label="Eliminar"
+                                                ></lightning-menu-item>
+                                            </lightning-button-menu>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template if:false={hasRows}>
+                    <div class="slds-p-around_medium slds-text-align_center">No quote lines</div>
+                </template>
+            </template>
+        </template>
+    </lightning-card>
+
+    <template if:true={showCatalogModal}>
+        <section class="slds-modal slds-fade-in-open qle-modal" role="dialog" aria-modal="true">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <h2 class="slds-modal__title">Catálogo y categoría</h2>
+                    <lightning-button-icon
+                        icon-name="utility:close"
+                        alternative-text="Cerrar"
+                        title="Cerrar"
+                        onclick={closeCatalogModal}
+                        class="slds-modal__close"
+                    ></lightning-button-icon>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p class="slds-m-bottom_small slds-text-body_small">
+                        Elija el catálogo y la categoría para filtrar la búsqueda y el listado (solo productos de esa
+                        categoría en el price book del presupuesto).
+                    </p>
+                    <lightning-combobox
+                        name="catalog"
+                        label="Catálogo"
+                        value={draftCatalogId}
+                        placeholder="Seleccione un catálogo"
+                        options={catalogComboOptions}
+                        onchange={handleDraftCatalogChange}
+                    ></lightning-combobox>
+                    <template if:true={draftCategoriesLoading}>
+                        <div class="qle-search-spinner">
+                            <lightning-spinner alternative-text="Cargando categorías" size="small"></lightning-spinner>
+                        </div>
+                    </template>
+                    <lightning-combobox
+                        class="slds-m-top_small"
+                        name="category"
+                        label="Categoría"
+                        value={draftCategoryId}
+                        placeholder="Seleccione una categoría"
+                        options={draftCategoryComboOptions}
+                        onchange={handleDraftCategoryChange}
+                        disabled={draftCategoryPicklistDisabled}
+                    ></lightning-combobox>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancelar" onclick={closeCatalogModal}></lightning-button>
+                    <lightning-button variant="brand" label="Aplicar" onclick={handleApplyCatalogModal}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <template if:true={showFlowModal}>
+        <section class="slds-modal slds-fade-in-open qle-modal qle-flow-modal" role="dialog" aria-modal="true">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <h2 class="slds-modal__title">Configurar producto</h2>
+                    <lightning-button-icon
+                        icon-name="utility:close"
+                        alternative-text="Cerrar configurador"
+                        title="Cerrar"
+                        onclick={closeFlowModal}
+                        class="slds-modal__close"
+                    ></lightning-button-icon>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium qle-flow-body">
+                    <lightning-flow
+                        flow-api-name={currentFlowApiName}
+                        flow-input-variables={flowInputVariables}
+                        onstatuschange={handleFlowStatusChange}
+                    ></lightning-flow>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cerrar" onclick={closeFlowModal}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

@@ -1,0 +1,139 @@
+<template>
+    <lightning-card title={label.quoteLines} icon-name="standard:quotes">
+        <lightning-button
+            slot="actions"
+            variant="brand"
+            label={addButtonLabel}
+            icon-name="utility:add"
+            onclick={handleOpenProductBrowser}
+            class="slds-m-right_x-small"
+        ></lightning-button>
+        <lightning-button-icon
+            slot="actions"
+            icon-name="utility:refresh"
+            alternative-text={label.refresh}
+            title={label.refresh}
+            onclick={handleRefresh}
+        ></lightning-button-icon>
+
+        <!-- Loading -->
+        <template if:true={loading}>
+            <div class="mtle-spinner">
+                <lightning-spinner alternative-text={label.loading} size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <!-- Error -->
+        <template if:true={error}>
+            <div class="slds-text-color_error slds-p-around_medium slds-text-align_center">
+                {error}
+            </div>
+        </template>
+
+        <template if:false={loading}>
+            <template if:false={error}>
+                <!-- Pending cards (optimistic) -->
+                <template if:true={hasPendingCards}>
+                    <div class="mtle-pending-section">
+                        <template for:each={pendingCards} for:item="pc">
+                            <div key={pc.id} class="mtle-pending-card">
+                                <lightning-spinner alternative-text={label.adding} size="x-small"></lightning-spinner>
+                                <span class="mtle-pending-label">
+                                    {pc.productName}
+                                </span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Line list -->
+                <template if:true={hasLines}>
+                    <c-mobile-tle-line-list
+                        line-rows={lineRows}
+                        column-definitions={columnDefinitions}
+                        currency-iso-code={quoteContext.currencyIsoCode}
+                        onlineaction={handleLineAction}
+                        oninlineedit={handleInlineEdit}
+                    ></c-mobile-tle-line-list>
+                </template>
+
+                <!-- Empty state -->
+                <template if:true={showEmptyState}>
+                    <div class="mtle-empty">
+                        <lightning-icon
+                            icon-name="standard:empty_state"
+                            size="large"
+                            class="slds-m-bottom_small"
+                        ></lightning-icon>
+                        <p class="slds-text-heading_small slds-text-color_weak">
+                            {label.noQuoteLines}
+                        </p>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                            {label.pressAdd}
+                        </p>
+                    </div>
+                </template>
+
+                <!-- Add button is now in the card header -->
+            </template>
+        </template>
+    </lightning-card>
+
+    <!-- Product Browser (full-screen bottom sheet) -->
+    <template if:true={showProductBrowser}>
+        <c-mobile-tle-product-browser
+            quote-id={recordId}
+            quote-context={quoteContext}
+            default-page-size={defaultPageSize}
+            onclose={handleCloseProductBrowser}
+            onproductadded={handleProductAdded}
+            onproductadderror={handleProductAddError}
+        ></c-mobile-tle-product-browser>
+    </template>
+
+    <!-- Line action bottom sheet -->
+    <template if:true={showActionSheet}>
+        <c-mobile-tle-bottom-sheet onclose={handleCloseActionSheet}>
+            <div class="mtle-action-list">
+                <button type="button" class="mtle-action-item" onclick={handleActionSelect}
+                    data-action="detail">
+                    <lightning-icon icon-name="utility:preview" size="x-small"
+                        class="slds-m-right_small"></lightning-icon>
+                    {label.viewDetail}
+                </button>
+                <button type="button" class="mtle-action-item" onclick={handleActionSelect}
+                    data-action="clone">
+                    <lightning-icon icon-name="utility:copy" size="x-small"
+                        class="slds-m-right_small"></lightning-icon>
+                    {label.cloneLine}
+                </button>
+                <template if:true={showConfigureAction}>
+                    <button type="button" class="mtle-action-item" onclick={handleActionSelect}
+                        data-action="configure">
+                        <lightning-icon icon-name="utility:settings" size="x-small"
+                            class="slds-m-right_small"></lightning-icon>
+                        {label.configure}
+                    </button>
+                </template>
+                <template if:false={actionSheetLine.parentId}>
+                    <button type="button" class="mtle-action-item mtle-action-danger" onclick={handleActionSelect}
+                        data-action="delete">
+                        <lightning-icon icon-name="utility:delete" size="x-small"
+                            class="slds-m-right_small" variant="error"></lightning-icon>
+                        {label.deleteLbl}
+                    </button>
+                </template>
+            </div>
+        </c-mobile-tle-bottom-sheet>
+    </template>
+
+    <!-- Configurator modal -->
+    <template if:true={showConfigurator}>
+        <c-mobile-tle-configurator
+            quote-id={recordId}
+            line-id={configuratorLineId}
+            onclose={handleConfiguratorClose}
+            ondone={handleConfiguratorDone}
+        ></c-mobile-tle-configurator>
+    </template>
+</template>

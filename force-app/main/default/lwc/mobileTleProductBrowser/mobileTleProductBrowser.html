@@ -1,0 +1,144 @@
+<template>
+    <!-- Full-screen overlay / bottom sheet -->
+    <section class="mtle-browser-overlay" role="dialog" aria-modal="true">
+        <div class="mtle-browser-container">
+            <!-- Header -->
+            <header class="mtle-browser-header">
+                <h2 class="mtle-browser-title">{label.addProduct}</h2>
+                <lightning-button-icon
+                    icon-name="utility:close"
+                    alternative-text={label.close}
+                    title={label.close}
+                    onclick={handleClose}
+                    size="medium"
+                    class="mtle-browser-close"
+                ></lightning-button-icon>
+            </header>
+
+            <!-- Pricebook picker -->
+            <template if:true={showPricebookPicker}>
+                <div class="mtle-pricebook-picker">
+                    <div class="slds-text-align_center slds-p-bottom_medium">
+                        <lightning-icon icon-name="utility:warning" variant="warning"
+                            size="small" class="slds-m-right_small"></lightning-icon>
+                        <span>{label.noPbWarning}</span>
+                    </div>
+                    <lightning-combobox
+                        name="pricebook"
+                        label={label.selectPb}
+                        value={selectedPricebookId}
+                        placeholder={label.choosePb}
+                        options={pricebookComboOptions}
+                        onchange={handlePricebookChange}
+                    ></lightning-combobox>
+                    <div class="slds-m-top_medium slds-text-align_center">
+                        <lightning-button label={label.cancel} onclick={handleClose}
+                            class="slds-m-right_small"></lightning-button>
+                        <lightning-button variant="brand" label={label.assign}
+                            onclick={handleAssignPricebook}
+                            disabled={assignButtonDisabled}></lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <template if:false={showPricebookPicker}>
+                <!-- Search bar -->
+                <div class="mtle-browser-search">
+                    <lightning-input
+                        type="search"
+                        label={label.searchProduct}
+                        variant="label-hidden"
+                        placeholder={label.searchPlaceholder}
+                        value={searchTerm}
+                        oninput={handleSearchInput}
+                    ></lightning-input>
+                </div>
+
+                <!-- Catalog / Category pickers -->
+                <div class="mtle-browser-filters">
+                    <lightning-combobox
+                        name="catalog"
+                        label={label.catalog}
+                        value={selectedCatalogId}
+                        placeholder={label.selectCatalog}
+                        options={catalogComboOptions}
+                        onchange={handleCatalogChange}
+                        class="mtle-filter-combo"
+                    ></lightning-combobox>
+                    <lightning-combobox
+                        name="category"
+                        label={label.category}
+                        value={selectedCategoryId}
+                        placeholder={label.selectCategory}
+                        options={categoryComboOptions}
+                        onchange={handleCategoryChange}
+                        disabled={categoryPickerDisabled}
+                        class="mtle-filter-combo"
+                    ></lightning-combobox>
+                    <lightning-button
+                        variant="neutral"
+                        label={label.listProducts}
+                        onclick={handleListProducts}
+                        disabled={listButtonDisabled}
+                        class="mtle-list-btn"
+                    ></lightning-button>
+                </div>
+
+                <!-- Loading -->
+                <template if:true={searchLoading}>
+                    <div class="mtle-browser-spinner">
+                        <lightning-spinner alternative-text={label.searching} size="small"></lightning-spinner>
+                    </div>
+                </template>
+
+                <!-- Product list -->
+                <template if:false={searchLoading}>
+                    <template if:true={hasProducts}>
+                        <div class="mtle-product-list">
+                            <template for:each={products} for:item="prod">
+                                <c-mobile-tle-product-card
+                                    key={prod.pricebookEntryId}
+                                    product={prod}
+                                    quote-id={quoteId}
+                                    currency-iso-code={quoteContext.currencyIsoCode}
+                                    onproductadded={handleProductAdded}
+                                    onproductadderror={handleProductAddError}
+                                ></c-mobile-tle-product-card>
+                            </template>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="mtle-pagination">
+                            <lightning-button
+                                label={label.previous}
+                                onclick={handlePrevPage}
+                                disabled={prevPageDisabled}
+                            ></lightning-button>
+                            <span class="mtle-page-info">{pageInfo}</span>
+                            <lightning-button
+                                label={label.next}
+                                onclick={handleNextPage}
+                                disabled={nextPageDisabled}
+                            ></lightning-button>
+                        </div>
+                    </template>
+                    <template if:false={hasProducts}>
+                        <div class="mtle-no-products">
+                            <p class="slds-text-body_small slds-text-color_weak slds-text-align_center slds-p-around_medium">
+                                {label.selectCatAndCateg}
+                            </p>
+                        </div>
+                    </template>
+                </template>
+            </template>
+
+            <!-- Global loading -->
+            <template if:true={loading}>
+                <div class="mtle-browser-loading-overlay">
+                    <lightning-spinner alternative-text={label.loading} size="medium"></lightning-spinner>
+                </div>
+            </template>
+        </div>
+    </section>
+    <div class="mtle-browser-backdrop" onclick={handleClose}></div>
+</template>

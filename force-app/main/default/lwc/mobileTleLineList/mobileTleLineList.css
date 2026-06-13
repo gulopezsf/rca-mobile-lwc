@@ -1,0 +1,57 @@
+.mtle-line-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.mtle-line-wrapper {
+    transition: padding-inline-start 0.15s ease;
+}
+
+/* Bundle parent wrapper: visual grouping */
+.mtle-line-wrapper-parent {
+    border: 1px solid var(--slds-g-color-border-base-2, #d8d8d8);
+    border-radius: 0.625rem;
+    padding: 0.25rem;
+    background: var(--slds-g-color-neutral-base-98, #fafaf9);
+}
+
+/* Child wrappers inside the indented area */
+.mtle-line-wrapper-child {
+    margin-inline-start: 0.75rem;
+    position: relative;
+}
+
+/* Vertical connector line for children */
+.mtle-line-wrapper-child::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -0.375rem;
+    width: 2px;
+    background: var(--slds-g-color-brand-base-60, #1b96ff);
+    border-radius: 1px;
+}
+
+/* Last child: connector stops at center */
+.mtle-line-wrapper-child-last::before {
+    bottom: 50%;
+}
+
+.mtle-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.375rem 0.125rem;
+}
+
+.mtle-toggle-btn {
+    flex: 0 0 auto;
+}
+
+.mtle-child-count {
+    font-size: 0.75rem;
+    color: var(--slds-g-color-neutral-base-30, #706e6b);
+}

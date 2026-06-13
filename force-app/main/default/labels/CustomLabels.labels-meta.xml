@@ -1,0 +1,774 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- Mobile TLE – UI labels (default language = Spanish)           -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+
+    <!-- ─── Common / shared ─────────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_Success</fullName>
+        <value>Éxito</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Toast title: success</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Error</fullName>
+        <value>Error</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Toast title: error</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Info</fullName>
+        <value>Info</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Toast title: info</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Loading</fullName>
+        <value>Cargando</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Loading spinner alt text</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Cancel</fullName>
+        <value>Cancelar</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Cancel button</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Close</fullName>
+        <value>Cerrar</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Close button</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Save</fullName>
+        <value>Guardar</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Save button alt</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_NoName</fullName>
+        <value>(Sin nombre)</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Product with no name fallback</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Yes</fullName>
+        <value>Sí</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Boolean yes</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_No</fullName>
+        <value>No</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Boolean no</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_UnknownError</fullName>
+        <value>Error desconocido</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Unknown error fallback</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Quote Lines (main component) ────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_QuoteLines</fullName>
+        <value>Líneas de Cotización</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Card title: Quote Lines</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_AddProduct</fullName>
+        <value>Añadir Producto</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Add product button</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Refresh</fullName>
+        <value>Refrescar</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Refresh button</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_NoQuoteLines</fullName>
+        <value>No hay líneas de cotización</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Empty state heading</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_PressAddToStart</fullName>
+        <value>Pulse «Añadir Producto» para empezar</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Empty state subtitle</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Adding</fullName>
+        <value>Añadiendo</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Adding spinner alt</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_AddingProductQty</fullName>
+        <value>Añadiendo {0} (×{1})…</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Pending card label with product and qty</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Line actions ────────────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_ViewDetail</fullName>
+        <value>Ver detalle</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>View detail action</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CloneLine</fullName>
+        <value>Clonar línea</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Clone line action</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Configure</fullName>
+        <value>Configurar</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Configure action</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Delete</fullName>
+        <value>Eliminar</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Delete action</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_ConfirmDeleteLine</fullName>
+        <value>¿Eliminar esta línea de cotización?</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Delete confirmation message</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_DeleteLineHeader</fullName>
+        <value>Eliminar línea</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Delete confirmation header</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_LineDeleted</fullName>
+        <value>Línea eliminada</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Line deleted success</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_LineCloned</fullName>
+        <value>Línea clonada</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Line cloned success</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_FieldUpdated</fullName>
+        <value>Campo actualizado</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Inline edit success</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_ProductAddedToQuote</fullName>
+        <value>{0} añadido a la cotización</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Product added success</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_BundleAddedToQuote</fullName>
+        <value>{0} (bundle completo) añadido a la cotización</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Bundle added success</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CouldNotAdd</fullName>
+        <value>No se pudo añadir {0}: {1}</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Product add error</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CopySuffix</fullName>
+        <value>(copia)</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Clone name suffix</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_NoConfigFlowAvailable</fullName>
+        <value>No hay flow de configuración disponible.</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>No config flow available</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Product card ────────────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_Bundle</fullName>
+        <value>Bundle</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Bundle badge</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Configurable</fullName>
+        <value>Configurable</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Configurable badge</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_HideComponents</fullName>
+        <value>Ocultar componentes</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Hide children toggle</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_ViewNComponents</fullName>
+        <value>Ver {0} componentes</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>View N children toggle</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_SellingModel</fullName>
+        <value>Modo de venta</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Selling model label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Quantity</fullName>
+        <value>Cantidad:</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Quantity label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_DecreaseQty</fullName>
+        <value>Reducir cantidad</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Decrease quantity aria-label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_IncreaseQty</fullName>
+        <value>Aumentar cantidad</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Increase quantity aria-label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_AddingEllipsis</fullName>
+        <value>Añadiendo…</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Adding in progress</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_AddFullBundle</fullName>
+        <value>Añadir Bundle Completo</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Add full bundle button</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_AddToQuote</fullName>
+        <value>Añadir a la Cotización</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Add to quote button</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Product browser ─────────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_NoPricebookWarning</fullName>
+        <value>Este presupuesto no tiene Price Book asignado.</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>No pricebook warning</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_SelectPricebook</fullName>
+        <value>Seleccione un Price Book</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Select pricebook label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_ChoosePricebook</fullName>
+        <value>Elegir Price Book</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Pricebook placeholder</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Assign</fullName>
+        <value>Asignar</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Assign button</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_SearchProduct</fullName>
+        <value>Buscar producto</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Search product label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_SearchProductPlaceholder</fullName>
+        <value>Buscar producto (mín. 2 caracteres)…</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Search input placeholder</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Catalog</fullName>
+        <value>Catálogo</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Catalog label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_SelectCatalog</fullName>
+        <value>Seleccione catálogo</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Select catalog placeholder</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Category</fullName>
+        <value>Categoría</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Category label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_SelectCategory</fullName>
+        <value>Seleccione categoría</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Select category placeholder</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_ListProducts</fullName>
+        <value>Listar productos</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>List products button</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Searching</fullName>
+        <value>Buscando</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Searching spinner alt</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Previous</fullName>
+        <value>◀ Anterior</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Previous page</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Next</fullName>
+        <value>Siguiente ▶</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Next page</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_SelectCatalogAndCategory</fullName>
+        <value>Seleccione catálogo y categoría para ver productos, o busque por nombre.</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Empty product list message</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_SelectCatalogAndCategoryShort</fullName>
+        <value>Seleccione catálogo y categoría</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Catalog context summary fallback</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_PageNofM</fullName>
+        <value>Página {0} de {1}</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Pagination: Page N of M</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Line card ───────────────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_LineActions</fullName>
+        <value>Acciones de línea</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Line actions aria-label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Actions</fullName>
+        <value>Acciones</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Actions title</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_EditQuantity</fullName>
+        <value>Editar cantidad</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Edit quantity title</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_EditDiscount</fullName>
+        <value>Editar descuento</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Edit discount title</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Less</fullName>
+        <value>Menos</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Less/minus aria-label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_More</fullName>
+        <value>Más</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>More/plus aria-label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_QtyShort</fullName>
+        <value>Cant:</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Quantity short label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_DiscountShort</fullName>
+        <value>Dto:</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Discount short label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Line list ───────────────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_Expand</fullName>
+        <value>Expandir</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Expand bundle</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_Collapse</fullName>
+        <value>Colapsar</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Collapse bundle</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_NItems</fullName>
+        <value>{0} elemento{1}</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>N items (child count). {0}=count, {1}=s for plural</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Configurator ────────────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_ConfigureProduct</fullName>
+        <value>Configurar producto</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Configurator title</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CloseConfigurator</fullName>
+        <value>Cerrar configurador</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Close configurator alt</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgSaving</fullName>
+        <value>Guardando…</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Save in progress label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgSaved</fullName>
+        <value>Configuración guardada</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Configuration saved success</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgNoChanges</fullName>
+        <value>No hay cambios pendientes</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>No changes to save</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgValidationErrors</fullName>
+        <value>Errores de validación:</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Validation errors prefix</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgLoadError</fullName>
+        <value>Error al cargar configuración</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Configuration load error</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Config Group ──────────────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_CfgSelectBetween</fullName>
+        <value>Seleccione entre {0} y {1}</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Select between min and max hint</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgSelectExactly</fullName>
+        <value>Seleccione exactamente {0}</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Select exactly N hint</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgSelectUpTo</fullName>
+        <value>Seleccione hasta {0}</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Select up to N hint</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgSelectAtLeast</fullName>
+        <value>Seleccione al menos {0}</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Select at least N hint</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgSelectedCount</fullName>
+        <value>{0} seleccionados</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>N selected counter</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgValidationMin</fullName>
+        <value>Debe seleccionar al menos {0}</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Minimum selections validation</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgValidationMax</fullName>
+        <value>No puede seleccionar más de {0}</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Maximum selections validation</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Config Option ─────────────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_CfgRequired</fullName>
+        <value>Obligatorio</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Required option badge</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgNestedBundle</fullName>
+        <value>Sub-bundle</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Nested bundle badge</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgExpandOptions</fullName>
+        <value>Ver opciones</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Expand nested options</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgCollapseOptions</fullName>
+        <value>Ocultar opciones</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Collapse nested options</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Config Attributes ─────────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_CfgAttributes</fullName>
+        <value>Atributos</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Attributes section title</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgNoAttributes</fullName>
+        <value>Sin atributos configurables</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>No attributes available</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+
+    <!-- ─── Product (generic) ───────────────────────────────────────── -->
+    <labels>
+        <fullName>MTLE_Product</fullName>
+        <value>Producto</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Generic product label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_BundleWithNComponents</fullName>
+        <value>{0} (bundle con {1} componentes)</value>
+        <language>es</language>
+        <protected>false</protected>
+        <shortDescription>Bundle with N components label</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+</CustomLabels>

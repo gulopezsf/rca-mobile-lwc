@@ -1,0 +1,74 @@
+<template>
+    <div class={cardClass}>
+        <!-- Selection toggle + name row -->
+        <div class="mtle-cfg-option-header">
+            <lightning-input
+                type="checkbox"
+                checked={isSelected}
+                disabled={checkboxDisabled}
+                onchange={handleToggle}
+                variant="label-hidden"
+                label={optionName}
+                class="mtle-cfg-option-check"
+            ></lightning-input>
+            <div class="mtle-cfg-option-info">
+                <span class="mtle-cfg-option-name">{optionName}</span>
+                <template lwc:if={optionCode}>
+                    <span class="mtle-cfg-option-code">{optionCode}</span>
+                </template>
+                <!-- Badges -->
+                <div class="mtle-cfg-option-badges">
+                    <template lwc:if={isRequired}>
+                        <span class="mtle-cfg-badge mtle-cfg-badge--required">{label.required}</span>
+                    </template>
+                    <template lwc:if={isNestedBundle}>
+                        <span class="mtle-cfg-badge mtle-cfg-badge--nested">
+                            <lightning-icon icon-name="utility:package" size="xx-small"
+                                class="mtle-cfg-badge-icon"></lightning-icon>
+                            {label.nestedBundle}
+                        </span>
+                    </template>
+                </div>
+            </div>
+            <template lwc:if={hasPrice}>
+                <span class="mtle-cfg-option-price">{displayPrice}</span>
+            </template>
+        </div>
+
+        <!-- Quantity stepper (only when selected + editable) -->
+        <template lwc:if={isQuantityEditable}>
+            <div class="mtle-cfg-option-qty">
+                <span class="mtle-cfg-option-qty-label">{label.quantity}</span>
+                <button type="button" class="mtle-cfg-stepper" onclick={handleQtyMinus}
+                    disabled={decreaseDisabled} aria-label={label.decreaseQty}>−</button>
+                <input type="number" class="mtle-cfg-qty-input" value={currentQuantity}
+                    min={minQuantity} max={maxQuantity} step="1" onchange={handleQtyInput}/>
+                <button type="button" class="mtle-cfg-stepper" onclick={handleQtyPlus}
+                    disabled={increaseDisabled} aria-label={label.increaseQty}>+</button>
+            </div>
+        </template>
+
+        <!-- Nested bundle groups -->
+        <template lwc:if={hasChildGroups}>
+            <template lwc:if={isSelected}>
+                <button type="button" class="mtle-cfg-nested-toggle" onclick={handleToggleNested}>
+                    <lightning-icon icon-name={nestedToggleIcon} size="xx-small"
+                        class="mtle-cfg-toggle-icon"></lightning-icon>
+                    <span>{nestedToggleLabel}</span>
+                </button>
+                <template lwc:if={showNestedGroups}>
+                    <div class="mtle-cfg-nested-groups">
+                        <template for:each={childGroups} for:item="childGroup">
+                            <c-mobile-tle-config-group
+                                key={childGroup.groupId}
+                                group={childGroup}
+                                currency-iso-code={currencyIsoCode}
+                                nesting-level={childNestingLevel}
+                            ></c-mobile-tle-config-group>
+                        </template>
+                    </div>
+                </template>
+            </template>
+        </template>
+    </div>
+</template>

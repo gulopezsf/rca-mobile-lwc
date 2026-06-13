@@ -1,0 +1,160 @@
+<template>
+    <lightning-card icon-name="utility:einstein" title="Deal Desk Optimizer">
+        <div slot="actions" class="slds-grid slds-grid_vertical-align-center slds-gutters_x-small">
+            <lightning-button
+                label="Reanalizar"
+                icon-name="utility:refresh"
+                variant="neutral"
+                onclick={handleScore}
+                disabled={analyzing}
+                class="slds-m-right_x-small">
+            </lightning-button>
+            <lightning-button
+                label="Aplicar todas"
+                icon-name="utility:check"
+                variant="brand"
+                onclick={handleApplyAll}
+                disabled={applyAllDisabled}>
+            </lightning-button>
+        </div>
+
+        <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+
+            <div class="ddo-header slds-grid slds-wrap slds-grid_vertical-align-center slds-gutters slds-m-bottom_medium">
+                <div class="slds-col slds-size_2-of-3">
+                    <h2 class="slds-text-heading_small slds-truncate" title={headerLine}>
+                        {headerLine}
+                    </h2>
+                    <p class="slds-text-color_weak slds-text-body_small">
+                        Recomendaciones generadas con histórico de cuenta + benchmark del sector.
+                    </p>
+                </div>
+                <div class="slds-col slds-size_1-of-3 slds-text-align_right">
+                    <div class="ddo-impact-pill">
+                        <span class="slds-text-body_small slds-text-color_weak">Impacto neto</span>
+                        <div class="slds-text-heading_medium">{netImpactFormatted}</div>
+                    </div>
+                </div>
+            </div>
+
+            <template if:true={analyzing}>
+                <div class="slds-align_absolute-center slds-m-vertical_medium">
+                    <lightning-spinner alternative-text="Analizando" size="small"></lightning-spinner>
+                    <span class="slds-m-left_small slds-text-color_weak">Analizando el presupuesto...</span>
+                </div>
+            </template>
+
+            <template if:true={error}>
+                <div class="slds-text-color_error slds-p-around_small slds-box slds-theme_alert-texture slds-theme_warning">
+                    {error}
+                </div>
+            </template>
+
+            <template if:true={hasRecs}>
+                <ul class="slds-has-dividers_bottom-space">
+                    <template for:each={recs} for:item="rec">
+                        <li key={rec.Id} class="ddo-card slds-box slds-box_x-small slds-m-bottom_small">
+
+                            <div class="slds-grid slds-wrap slds-grid_vertical-align-start slds-gutters_x-small">
+                                <div class="slds-col slds-size_2-of-3">
+                                    <div class="slds-grid slds-gutters_xx-small slds-grid_vertical-align-center">
+                                        <span class={rec.strategyClass}>{rec.Strategy__c}</span>
+                                        <span class="ddo-sub-chip slds-m-left_xx-small">{rec.Sub_Category__c}</span>
+                                        <template if:true={rec.isApplied}>
+                                            <span class="ddo-applied-chip slds-m-left_xx-small">Aplicada</span>
+                                        </template>
+                                    </div>
+                                    <h3 class="slds-text-heading_small slds-m-top_xx-small">
+                                        {rec.Product_Name__c}
+                                    </h3>
+                                </div>
+                                <div class="slds-col slds-size_1-of-3 slds-text-align_right">
+                                    <div class="ddo-discount-block">
+                                        <span class="slds-text-color_weak slds-text-body_small">{rec.currentFormatted}</span>
+                                        <span class="slds-m-horizontal_xx-small slds-text-color_weak">→</span>
+                                        <span class="ddo-discount-target">{rec.recommendedFormatted}</span>
+                                    </div>
+                                    <div class="slds-text-body_small slds-text-color_weak">
+                                        Impacto: {rec.netImpactFormatted}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p class="slds-text-body_small slds-m-top_small ddo-reason">
+                                {rec.Reason__c}
+                            </p>
+
+                            <div class="slds-grid slds-wrap slds-gutters_x-small slds-m-top_small ddo-signals">
+                                <div class="slds-col slds-size_1-of-2 ddo-signal">
+                                    <span class="slds-text-color_weak">Segmento</span>
+                                    <span class={rec.segmentClass}>{rec.Customer_Segment__c}</span>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 ddo-signal">
+                                    <span class="slds-text-color_weak">Antigüedad</span>
+                                    <strong>{rec.tenureLabel}</strong>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 ddo-signal">
+                                    <span class="slds-text-color_weak">Histórico cuenta</span>
+                                    <strong>{rec.historicalFormatted}</strong>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 ddo-signal">
+                                    <span class="slds-text-color_weak">Benchmark sector</span>
+                                    <strong>{rec.benchmarkFormatted}</strong>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 ddo-signal">
+                                    <span class="slds-text-color_weak">Muestra similar</span>
+                                    <strong>{rec.similarLabel}</strong>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2 ddo-signal">
+                                    <span class="slds-text-color_weak">Margen tras descuento</span>
+                                    <strong>{rec.marginFormatted}</strong>
+                                </div>
+                            </div>
+
+                            <div class="slds-grid slds-wrap slds-grid_vertical-align-center slds-m-top_small">
+                                <div class="slds-col slds-size_2-of-3">
+                                    <div class="slds-text-body_small slds-text-color_weak slds-m-bottom_xx-small">
+                                        Confianza: <strong>{rec.confidence}%</strong>
+                                        <span class="slds-m-left_x-small">·</span>
+                                        <span class="slds-m-left_x-small">{rec.Recommendation_Source__c}</span>
+                                    </div>
+                                    <div class="ddo-confidence-track">
+                                        <div class="ddo-confidence-fill" style={rec.confidenceStyle}></div>
+                                    </div>
+                                </div>
+                                <div class="slds-col slds-size_1-of-3 slds-text-align_right">
+                                    <lightning-button
+                                        label="Aplicar"
+                                        icon-name="utility:check"
+                                        variant="brand"
+                                        data-id={rec.Id}
+                                        disabled={rec.applyDisabled}
+                                        onclick={handleApplyOne}>
+                                    </lightning-button>
+                                </div>
+                            </div>
+
+                        </li>
+                    </template>
+                </ul>
+
+                <div class="slds-text-align_right slds-text-color_weak slds-text-body_small slds-m-top_small">
+                    {pendingCount} pendiente(s) · {appliedCount} aplicada(s)
+                </div>
+            </template>
+
+            <template if:false={hasRecs}>
+                <template if:false={analyzing}>
+                    <div class="slds-align_absolute-center slds-p-vertical_large slds-text-color_weak">
+                        <lightning-icon icon-name="utility:einstein" size="medium" alternative-text="Sin recomendaciones"></lightning-icon>
+                        <p class="slds-m-top_small">
+                            No hay recomendaciones todavía. Pulsa <strong>Reanalizar</strong> o pide al agente:
+                            "puntúa este presupuesto para Deal Desk".
+                        </p>
+                    </div>
+                </template>
+            </template>
+
+        </div>
+    </lightning-card>
+</template>

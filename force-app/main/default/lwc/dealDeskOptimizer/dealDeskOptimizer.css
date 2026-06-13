@@ -1,0 +1,111 @@
+:host {
+    --ddo-radius: 0.5rem;
+    --ddo-bg-soft: var(--slds-g-color-neutral-base-95, #f3f3f3);
+    --ddo-border: var(--slds-g-color-border-base-3, #c9c9c9);
+    --ddo-accent: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.ddo-header h2 {
+    color: var(--slds-g-color-neutral-base-10, #181818);
+}
+
+.ddo-impact-pill {
+    display: inline-block;
+    background: var(--ddo-bg-soft);
+    border-radius: var(--ddo-radius);
+    padding: 0.4rem 0.75rem;
+    min-width: 7rem;
+}
+
+.ddo-card {
+    border-left: 4px solid var(--ddo-accent);
+    border-radius: var(--ddo-radius);
+    background: #ffffff;
+}
+
+.ddo-discount-block {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.ddo-discount-target {
+    color: var(--slds-g-color-success-base-30, #2e844a);
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.ddo-reason {
+    color: var(--slds-g-color-neutral-base-30, #444);
+    line-height: 1.35;
+}
+
+.ddo-sub-chip,
+.ddo-applied-chip,
+.ddo-strategy-chip,
+[class^="strategy-"],
+[class^="segment-"] {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.05rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.ddo-sub-chip {
+    background: var(--ddo-bg-soft);
+    color: var(--slds-g-color-neutral-base-30, #444);
+}
+
+.ddo-applied-chip {
+    background: #e0f7e9;
+    color: #1f6d3a;
+}
+
+.ddo-signals {
+    border-top: 1px dashed var(--ddo-border);
+    padding-top: 0.5rem;
+}
+
+.ddo-signal {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.15rem 0;
+    font-size: 0.78rem;
+}
+
+.ddo-signal strong {
+    color: var(--slds-g-color-neutral-base-10, #181818);
+}
+
+.ddo-confidence-track {
+    width: 100%;
+    height: 6px;
+    background: var(--ddo-bg-soft);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.ddo-confidence-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0176d3 0%, #2e844a 100%);
+    transition: width 0.3s ease;
+}
+
+.strategy-churn { background: #fde2e0; color: #ba0517; }
+.strategy-loyalty { background: #dcefff; color: #0b5cab; }
+.strategy-segment { background: #fff4cf; color: #8a5a00; }
+.strategy-ltv { background: #ede0fb; color: #5b32a0; }
+.strategy-benchmark { background: #e0f7e9; color: #1f6d3a; }
+.strategy-bundle { background: #fde3c7; color: #8a4b00; }
+.strategy-margin { background: #fff0f0; color: #b21f00; }
+.strategy-compliance { background: #e8eaf6; color: #1a237e; }
+.strategy-default { background: var(--ddo-bg-soft); color: #444; }
+
+.segment-premium { background: #ede0fb; color: #5b32a0; }
+.segment-standard { background: #dcefff; color: #0b5cab; }
+.segment-atrisk { background: #fff4cf; color: #8a5a00; }
+.segment-churnrisk { background: #fde2e0; color: #ba0517; }
