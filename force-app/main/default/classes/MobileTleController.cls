@@ -207,6 +207,20 @@ public with sharing class MobileTleController {
         @AuraEnabled public String picklistValueId { get; set; }
     }
 
+    // ─── Subscription Term DTO ────────────────────────────────────────────────
+
+    /**
+     * Holds subscription term information derived from the Quote and
+     * the selling model type. Used to pass StartDate/EndDate/SubscriptionTerm
+     * to PlaceQuote for TermDefined products.
+     */
+    private class SubscriptionTermInfo {
+        Boolean isTermDefined = false;
+        Date startDate;
+        Date endDate;
+        Integer subscriptionTerm;
+    }
+
     // ─── Quote Context ───────────────────────────────────────────────────────
 
     @AuraEnabled
@@ -1004,6 +1018,12 @@ public with sharing class MobileTleController {
             productSellingModelId = (String) pbe.get('ProductSellingModelId');
         }
 
+        // Resolve subscription term info for TermDefined selling models.
+        // The pricing procedure requires either StartDate+EndDate or SubscriptionTerm
+        // on the QuoteLineItem; without them it throws:
+        // "Specify either the end date or add the Subscription Term..."
+        SubscriptionTermInfo termInfo = resolveSubscriptionTermInfo(quoteId, productSellingModelId);
+
         // Test context uses DML fallback (PlaceQuote not available in unit tests)
         if (USE_SOQL_FALLBACK) {
             return addLineDirect(quoteId, effectiveProduct2Id, pricebookEntryId,
@@ -1012,7 +1032,7 @@ public with sharing class MobileTleController {
 
         // Standard RCA PlaceQuote API — single path, no fallbacks
         return addLineViaPlaceQuote(quoteId, effectiveProduct2Id, pricebookEntryId,
-            effectiveUnitPrice, quantity, billingFrequency, productSellingModelId);
+            effectiveUnitPrice, quantity, billingFrequency, productSellingModelId, termInfo);
     }
 
     private static PricebookEntry queryPricebookEntryForAdd(Id pricebookEntryId) {
@@ -1032,7 +1052,7 @@ public with sharing class MobileTleController {
     private static Id addLineViaPlaceQuote(
         Id quoteId, String product2Id, String pricebookEntryId,
         Decimal unitPrice, Decimal quantity, String billingFrequency,
-        String productSellingModelId
+        String productSellingModelId, SubscriptionTermInfo termInfo
     ) {
         // 1. Quote record — PATCH existing quote (valid methods: POST, PATCH)
         PlaceQuote.RecordResource quoteRecord =
@@ -1064,6 +1084,33 @@ public with sharing class MobileTleController {
                 QuoteLineItem.ProductSellingModelId.getDescribe();
             if (psmField.isCreateable()) {
                 qliFields.put('ProductSellingModelId', productSellingModelId);
+            }
+        }
+        // Subscription term fields for TermDefined selling models.
+        // Without these, the pricing procedure throws:
+        // "Specify either the end date or add the Subscription Term..."
+        if (termInfo != null && termInfo.isTermDefined) {
+            Map<String, Schema.SObjectField> qliFieldMap =
+                Schema.SObjectType.QuoteLineItem.fields.getMap();
+            if (termInfo.startDate != null && termInfo.endDate != null) {
+                // Prefer StartDate + EndDate (lets RCA derive SubscriptionTerm).
+                // Dates must be ISO-8601 strings (YYYY-MM-DD) for PlaceQuote serialization.
+                String startDateStr = String.valueOf(termInfo.startDate).left(10);
+                String endDateStr = String.valueOf(termInfo.endDate).left(10);
+                if (qliFieldMap.containsKey('StartDate') &&
+                    qliFieldMap.get('StartDate').getDescribe().isCreateable()) {
+                    qliFields.put('StartDate', startDateStr);
+                }
+                if (qliFieldMap.containsKey('EndDate') &&
+                    qliFieldMap.get('EndDate').getDescribe().isCreateable()) {
+                    qliFields.put('EndDate', endDateStr);
+                }
+            }
+            if (termInfo.subscriptionTerm != null) {
+                if (qliFieldMap.containsKey('SubscriptionTerm') &&
+                    qliFieldMap.get('SubscriptionTerm').getDescribe().isCreateable()) {
+                    qliFields.put('SubscriptionTerm', termInfo.subscriptionTerm);
+                }
             }
         }
         qliRecord.fieldValues = qliFields;
@@ -1748,6 +1795,119 @@ public with sharing class MobileTleController {
         return orgDefaultCurrencyCache;
     }
 
+    /**
+     * Resolves subscription term information for TermDefined selling models.
+     * Queries the ProductSellingModel to determine the type, then reads the
+     * Quote's StartDate, EndDate, and RLM_TermMonths__c to derive term values.
+     *
+     * Fallback chain for subscription term:
+     *   1. Quote.StartDate + Quote.EndDate (preferred — lets RCA derive term)
+     *   2. Quote.RLM_TermMonths__c as SubscriptionTerm
+     *   3. 12 (months) as default for annual TermDefined models
+     */
+    private static SubscriptionTermInfo resolveSubscriptionTermInfo(Id quoteId, String productSellingModelId) {
+        SubscriptionTermInfo info = new SubscriptionTermInfo();
+
+        // Determine selling model type
+        if (String.isBlank(productSellingModelId)) {
+            return info;
+        }
+        try {
+            Id psmId = (Id) productSellingModelId;
+            List<ProductSellingModel> psmRows = [
+                SELECT SellingModelType FROM ProductSellingModel
+                WHERE Id = :psmId WITH SECURITY_ENFORCED LIMIT 1
+            ];
+            if (psmRows.isEmpty() || psmRows[0].SellingModelType != 'TermDefined') {
+                return info;
+            }
+        } catch (Exception e) {
+            return info;
+        }
+
+        info.isTermDefined = true;
+
+        // Query Quote for dates and term
+        try {
+            Map<String, Schema.SObjectField> quoteFields =
+                Schema.SObjectType.Quote.fields.getMap();
+            List<String> qf = new List<String>{ 'Id' };
+            if (quoteFields.containsKey('StartDate')) {
+                qf.add('StartDate');
+            }
+            if (quoteFields.containsKey('EndDate')) {
+                qf.add('EndDate');
+            }
+            if (quoteFields.containsKey('RLM_TermMonths__c')) {
+                qf.add('RLM_TermMonths__c');
+            }
+
+            String soql = 'SELECT ' + String.join(qf, ',') +
+                ' FROM Quote WHERE Id = :quoteId WITH SECURITY_ENFORCED LIMIT 1';
+            List<Quote> rows = (List<Quote>) Database.query(soql);
+            if (rows.isEmpty()) {
+                // Fallback to default term
+                info.subscriptionTerm = 12;
+                return info;
+            }
+            Quote q = rows[0];
+
+            // 1. Prefer StartDate + EndDate
+            if (quoteFields.containsKey('StartDate') && quoteFields.containsKey('EndDate')) {
+                Date sd = (Date) q.get('StartDate');
+                Date ed = (Date) q.get('EndDate');
+                if (sd != null && ed != null) {
+                    info.startDate = sd;
+                    info.endDate = ed;
+                    // Also derive SubscriptionTerm as a backup
+                    info.subscriptionTerm = sd.monthsBetween(ed);
+                    if (info.subscriptionTerm == null || info.subscriptionTerm <= 0) {
+                        info.subscriptionTerm = 12;
+                    }
+                    return info;
+                }
+            }
+
+            // 2. Quote has StartDate but no EndDate — derive EndDate
+            Date sd = null;
+            if (quoteFields.containsKey('StartDate')) {
+                sd = (Date) q.get('StartDate');
+            }
+
+            if (sd != null) {
+                info.startDate = sd;
+                // Try RLM_TermMonths__c to compute EndDate
+                if (quoteFields.containsKey('RLM_TermMonths__c')) {
+                    Decimal termMonths = (Decimal) q.get('RLM_TermMonths__c');
+                    if (termMonths != null && termMonths > 0) {
+                        info.subscriptionTerm = termMonths.intValue();
+                        info.endDate = sd.addMonths(info.subscriptionTerm);
+                        return info;
+                    }
+                }
+                // StartDate present but no RLM_TermMonths__c — default 12 months
+                info.subscriptionTerm = 12;
+                info.endDate = sd.addMonths(12);
+                return info;
+            }
+
+            // 3. No StartDate at all — try RLM_TermMonths__c alone
+            if (quoteFields.containsKey('RLM_TermMonths__c')) {
+                Decimal termMonths = (Decimal) q.get('RLM_TermMonths__c');
+                if (termMonths != null && termMonths > 0) {
+                    info.subscriptionTerm = termMonths.intValue();
+                    return info;
+                }
+            }
+        } catch (Exception e) {
+            // non-fatal — fall through to default
+        }
+
+        // 4. Default: 12 months (1 year) for annual TermDefined
+        info.subscriptionTerm = 12;
+        return info;
+    }
+
     private static String deriveBillingFrequency(PricebookEntry pbe, String product2Id, String sellingModelId) {
         String pricingTermUnit = null;
         try {
@@ -2222,6 +2382,7 @@ public with sharing class MobileTleController {
         // Build a map of Product2Id → ProductRelatedComponentId for new children
         // (needed when creating QuoteLineRelationship records)
         Map<String, Id> product2ToCompIdMap = new Map<String, Id>();
+        QuoteLineItem parentQli = null;
         if (!adds.isEmpty()) {
             Set<String> addProduct2Ids = new Set<String>();
             for (ConfigChange a : adds) {
@@ -2229,9 +2390,9 @@ public with sharing class MobileTleController {
                     addProduct2Ids.add(a.childProduct2Id);
                 }
             }
-            // Look up the parent product from the parent QLI
-            QuoteLineItem parentQli = [
-                SELECT Id, Product2Id FROM QuoteLineItem
+            // Look up the parent product (and selling model) from the parent QLI
+            parentQli = [
+                SELECT Id, Product2Id, ProductSellingModelId FROM QuoteLineItem
                 WHERE Id = :parentLineId AND QuoteId = :quoteId
                 LIMIT 1
             ];
@@ -2257,6 +2418,19 @@ public with sharing class MobileTleController {
             ];
             if (!relTypes.isEmpty()) {
                 bundleRelTypeId = relTypes[0].Id;
+            }
+        }
+
+        // Resolve TermDefined subscription term info for the parent bundle's
+        // selling model.  Child lines inherit the same term fields so that
+        // PlaceQuote's pricing procedure doesn't reject them with
+        // "Specify either the end date or add the Subscription Term…"
+        SubscriptionTermInfo bundleTermInfo = null;
+        if (!adds.isEmpty()) {
+            // parentQli was queried above with ProductSellingModelId
+            String parentPsmId = parentQli != null ? parentQli.ProductSellingModelId : null;
+            if (String.isNotBlank(parentPsmId)) {
+                bundleTermInfo = resolveSubscriptionTermInfo(quoteId, parentPsmId);
             }
         }
 
@@ -2288,6 +2462,30 @@ public with sharing class MobileTleController {
                 childFields.put('Quantity', a.quantity != null ? a.quantity : 1);
                 if (a.unitPrice != null) {
                     childFields.put('UnitPrice', a.unitPrice);
+                }
+                // TermDefined child lines need subscription term fields
+                if (bundleTermInfo != null && bundleTermInfo.isTermDefined) {
+                    Map<String, Schema.SObjectField> qliFieldMap =
+                        Schema.SObjectType.QuoteLineItem.fields.getMap();
+                    if (bundleTermInfo.startDate != null && bundleTermInfo.endDate != null) {
+                        // Dates must be ISO-8601 strings (YYYY-MM-DD) for PlaceQuote serialization.
+                        String childStartStr = String.valueOf(bundleTermInfo.startDate).left(10);
+                        String childEndStr = String.valueOf(bundleTermInfo.endDate).left(10);
+                        if (qliFieldMap.containsKey('StartDate') &&
+                            qliFieldMap.get('StartDate').getDescribe().isCreateable()) {
+                            childFields.put('StartDate', childStartStr);
+                        }
+                        if (qliFieldMap.containsKey('EndDate') &&
+                            qliFieldMap.get('EndDate').getDescribe().isCreateable()) {
+                            childFields.put('EndDate', childEndStr);
+                        }
+                    }
+                    if (bundleTermInfo.subscriptionTerm != null) {
+                        if (qliFieldMap.containsKey('SubscriptionTerm') &&
+                            qliFieldMap.get('SubscriptionTerm').getDescribe().isCreateable()) {
+                            childFields.put('SubscriptionTerm', bundleTermInfo.subscriptionTerm);
+                        }
+                    }
                 }
                 childRec.fieldValues = childFields;
                 records.add(new PlaceQuote.RecordWithReferenceRequest(

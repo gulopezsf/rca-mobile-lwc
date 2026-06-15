@@ -25,7 +25,7 @@ PlaceQuote.GraphRequest
      ├─ referenceId: String (developer-defined ref)
      └─ records: List<RecordResource>
          ├─ SObjectType
-         ├─ method: 'GET' | 'POST' | 'PATCH'
+         ├─ method: 'POST' | 'PATCH'
          ├─ recordId (for PATCH/GET, optional for POST)
          └─ fieldValues: Map<String, Object>
 ```
@@ -34,9 +34,10 @@ PlaceQuote.GraphRequest
 
 | Method | Use Case |
 |--------|----------|
-| `GET` | Read a record into the graph context (e.g., the Quote itself) |
 | `POST` | Create a new record (e.g., add a QuoteLineItem) |
-| `PATCH` | Update an existing record (e.g., change quantity, reprice) |
+| `PATCH` | Update an existing record (e.g., change quantity, reprice the Quote) |
+
+> **Note**: Only `POST` and `PATCH` are valid methods. Using `GET` will fail — use `PATCH` for the Quote reference record instead.
 
 ### Configuration Options
 
@@ -210,9 +211,9 @@ PlaceQuote.PlaceQuoteResponse resp =
 **Use case**: Duplicate an existing QuoteLineItem (and its children if it's a bundle).
 
 ```apex
-// 1. Quote reference — GET (read context)
+// 1. Quote reference — PATCH (read context + pricing trigger)
 PlaceQuote.RecordResource quoteRecord =
-    new PlaceQuote.RecordResource(Quote.getSobjectType(), 'GET', source.QuoteId);
+    new PlaceQuote.RecordResource(Quote.getSobjectType(), 'PATCH', source.QuoteId);
 PlaceQuote.RecordWithReferenceRequest quoteRef =
     new PlaceQuote.RecordWithReferenceRequest('refQuote', quoteRecord);
 
@@ -392,6 +393,81 @@ if (existingCount == 0) {
 
 ---
 
+## Pattern 7: Subscription Term & Date Handling for TermDefined Selling Models
+
+**Use case**: When adding products with `TermDefined` selling models, the pricing engine requires explicit StartDate + EndDate or SubscriptionTerm on the QuoteLineItem. Without them, PlaceQuote throws: *"Specify either the end date or add the Subscription Term and unit."*
+
+### Date Derivation Priority Chain
+
+When creating a TermDefined QuoteLineItem, derive dates in this priority order:
+
+1. **Quote has both StartDate + EndDate** → Use both directly, derive SubscriptionTerm as backup
+2. **Quote has StartDate but no EndDate** → Derive EndDate from `Quote.StartDate.addMonths(RLM_TermMonths__c)` (or default 12 months)
+3. **Quote has neither** → Pass only SubscriptionTerm (from `RLM_TermMonths__c` or default 12)
+
+```apex
+// Example: resolveSubscriptionTermInfo
+SubscriptionTermInfo info = new SubscriptionTermInfo();
+
+// Path 1: Both dates present on the Quote
+if (quoteStartDate != null && quoteEndDate != null) {
+    info.startDate = quoteStartDate;
+    info.endDate = quoteEndDate;
+    info.subscriptionTerm = quoteStartDate.monthsBetween(quoteEndDate);
+    return info;
+}
+
+// Path 2: StartDate present, no EndDate — derive it
+if (quoteStartDate != null) {
+    info.startDate = quoteStartDate;
+    Integer termMonths = (rlmTermMonths != null && rlmTermMonths > 0)
+        ? rlmTermMonths.intValue()
+        : 12;  // Default 12 months
+    info.subscriptionTerm = termMonths;
+    info.endDate = quoteStartDate.addMonths(termMonths);
+    return info;
+}
+
+// Path 3: No StartDate — term only (engine derives its own dates)
+info.subscriptionTerm = (rlmTermMonths != null && rlmTermMonths > 0)
+    ? rlmTermMonths.intValue()
+    : 12;
+return info;
+```
+
+### CRITICAL: Date Serialization for PlaceQuote
+
+Dates must be passed as **ISO-8601 strings** (`YYYY-MM-DD`), not Apex `Date` objects. PlaceQuote's JSON deserializer rejects `Date` objects with: *"Cannot deserialize instance of date from VALUE_STRING"*.
+
+```apex
+// ✅ CORRECT — ISO-8601 string
+String startDateStr = String.valueOf(termInfo.startDate).left(10);
+qliFields.put('StartDate', startDateStr);
+
+// ❌ WRONG — raw Date object causes deserialization error
+qliFields.put('StartDate', termInfo.startDate);
+```
+
+### Bundle Children Inherit Parent Dates
+
+When configuring bundle children, pass the **same** date fields as the parent. The pricing engine may adjust child EndDate by -1 day (standard RCA behavior for term-aligned bundle components).
+
+```apex
+// Parent: StartDate=2026-06-10, EndDate=2027-06-10, Term=12
+// Children will get: StartDate=2026-06-10, EndDate=2027-06-09, Term=1
+// The 1-day offset is expected RCA behavior.
+```
+
+### Field Requirements by Selling Model Type
+
+| Selling Model | StartDate | EndDate | SubscriptionTerm | BillingFrequency |
+|---------------|:---------:|:-------:|:----------------:|:----------------:|
+| TermDefined   | ✅ Required | ✅ Required | ✅ Backup | Optional |
+| Evergreen     | ❌ | ❌ | ❌ | Optional |
+| OneTime       | ❌ | ❌ | ❌ | ❌ |
+
+---
+
 ## Error Handling
 
 ```apex
@@ -426,7 +502,8 @@ if (resp.isSuccess != true) {
 | Clone line (with children) | POST + graph refs | true | System | RunAndAllowErrors |
 | Delete lines | DML + PATCH reprice | false | System | RunAndAllowErrors |
 | Add bundle child (workaround) | POST + DML relationship | false | System | RunAndAllowErrors |
+| Add TermDefined product | POST + date strings | true | System | RunAndAllowErrors |
 
 ---
 
-*Based on patterns from the Mobile TLE Bundle Configurator project (v1.2, June 2026).*
+*Based on patterns from the Mobile TLE Bundle Configurator project (v1.4, June 2026). Updated with subscription term date derivation and PlaceQuote date serialization patterns.*
