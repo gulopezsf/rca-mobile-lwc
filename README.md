@@ -1,160 +1,137 @@
-# Mobile TLE Bundle Configurator for Revenue Cloud Advanced
+# Mobile TLE Bundle Configurator
 
-A **mobile-first Lightning Web Component** for managing Quotes in Salesforce Revenue Cloud Advanced (RCA). Replaces the desktop-oriented standard Quote workspace with a touch-optimized, card-based interface designed for field sales and Solution Engineer demos.
+> A mobile-first Lightning Web Component (LWC) for quoting, pricing, and bundle configuration in **Revenue Cloud Advanced (RCA)**.
 
----
-
-## Features
-
-- **Card-based quote line display** — Each line item rendered as a mobile-friendly card with product image, pricing, and actions
-- **Inline editing** — Tap-to-edit for Quantity, Discount, and Unit Price with immediate repricing via PlaceQuote API
-- **Bundle configuration** — Full 3-level nested bundle configurator with group cardinality validation and attribute editing
-- **Product browser** — Add products to quotes with search, category filtering, and selling model selection
-- **Multi-language support** — Custom Labels for all UI strings (Spanish included out of the box)
-- **Quote summary** — Real-time subtotal, discount, and grand total display
+**Version:** 1.4
+**API Version:** 66.0
+**Package Id:** `04tJ9000000xhee`
 
 ---
 
 ## Prerequisites
 
-- **Revenue Cloud Advanced (RCA)** must be enabled on the target org
-- PlaceQuote API access (comes with RCA license)
-- API version 66.0+
+> **Revenue Cloud Advanced (RCA) is required.** This component depends on RCA-specific sObjects, fields, and Apex APIs that do not exist in standard Salesforce orgs. Installation on an org without RCA will fail with compilation errors (176+ errors reported on standard SDO trial orgs).
+
+### Required Org Capabilities
+
+| Requirement | Details |
+|-------------|---------|
+| **Revenue Cloud Advanced license** | The org must have RCA (also known as Agentforce Revenue Management) enabled and provisioned. Standard Sales Cloud / SDO trial orgs do **not** include RCA. |
+| **PlaceQuote Apex API** | The `PlaceQuote` namespace must be accessible. This provides `PlaceQuote.PlaceQuoteRLMApexProcessor`, `PlaceQuote.GraphRequest`, and all related classes used for pricing and configuration. |
+| **RCA sObjects** | `QuoteLineItemAttribute` — stores bundle attribute values per quote line. `QuoteLineRelationship` — links parent/child bundle quote lines. `ProductSellingModel` — defines selling model (one-time, evergreen, term-defined). |
+| **RCA fields on QuoteLineItem** | `ParentQuoteLineItemId` — parent reference for bundle child lines. `BillingFrequency` — billing cadence for term-based products. `ProductSellingModelId` — link to the selling model. `NetUnitPrice` — calculated net price per unit. |
+
+### Compatible Org Types
+
+| Org Type | Compatible? | Notes |
+|----------|:-----------:|-------|
+| RCA-enabled sandbox | **Yes** | Recommended for development and testing |
+| CDO org with RCA provisioned | **Yes** | Demo org with RCA package installed |
+| Partner Developer org with RCA | **Yes** | Must have RCA trial or license |
+| Standard SDO / trial org | **No** | Missing RCA sObjects and PlaceQuote namespace — 176+ compilation errors |
+| Production org with RCA license | **Yes** | Full support |
+| Scratch org with RCA features | **Yes** | Must enable Revenue Cloud features in scratch org definition |
+
+---
+
+## Pre-Install Checklist
+
+Run through this checklist **before** attempting installation:
+
+- [ ] Org has **Revenue Cloud Advanced** license enabled (Setup → Company Information → check for RCA/Revenue Lifecycle Management feature)
+- [ ] **PlaceQuote API** is accessible (`PlaceQuote` namespace visible — test by opening Developer Console and typing `PlaceQuote.GraphRequest g;`)
+- [ ] **QuoteLineItem** has RCA-specific fields: `ParentQuoteLineItemId`, `BillingFrequency`, `ProductSellingModelId`, `NetUnitPrice` (check in Object Manager → QuoteLineItem → Fields)
+- [ ] **QuoteLineItemAttribute** object exists (Object Manager → search for "QuoteLineItemAttribute")
+- [ ] **QuoteLineRelationship** object exists (Object Manager → search for "QuoteLineRelationship")
+- [ ] **ProductSellingModel** object exists (Object Manager → search for "ProductSellingModel")
+
+> **Quick validation:** If any of the above items fail, the org does **not** have RCA and this package cannot be installed. Contact your Salesforce account team to enable Revenue Cloud Advanced, or use an RCA-provisioned demo/sandbox org.
 
 ---
 
 ## Installation
 
-### Method 1: 1GP Unmanaged Package (Recommended)
+### Option 1: 1GP Unmanaged Package (Recommended)
 
 **Production / Demo orgs:**
 ```
-https://login.salesforce.com/packaging/installPackage.apexp?p0=04tJ9000000xheZ
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tJ9000000xhee
 ```
 
 **Sandbox orgs:**
 ```
-https://test.salesforce.com/packaging/installPackage.apexp?p0=04tJ9000000xheZ
+https://test.salesforce.com/packaging/installPackage.apexp?p0=04tJ9000000xhee
 ```
 
-### Method 2: Metadata Deploy via SF CLI
+### Option 2: Metadata Deploy
 
 ```bash
-cd Atlas
 sf project deploy start --manifest manifest/package.xml --target-org <YOUR_ORG_ALIAS>
 ```
 
----
+### Post-Install Steps
 
-## Post-Install Setup
-
-1. **Verify RCA is enabled** on the target org
-2. **Add `mobileTransactionLineEditor`** to a Quote Lightning Record Page via Lightning App Builder
-3. **Assign permissions** — users need Read/Edit on Quote and QuoteLineItem, plus PlaceQuote API access
-4. **Test with a bundle product** — Open a Quote with a bundle, tap a line's action menu, select "Configure"
+1. Assign the **Mobile TLE** permission set to users who need access.
+2. Verify the **Quote_Line_Editor_Columns** FieldSet exists on `QuoteLineItem` (should be included in the package).
+3. Open a Quote record and launch the Mobile TLE component from the action menu.
 
 ---
 
 ## Architecture
 
-```
-PlaceQuote-Only + SOQL-Only
+The component follows a **PlaceQuote-Only + SOQL-Only** architecture:
 
-Reads  → Direct SOQL queries (fast, no API overhead)
-Writes → PlaceQuote API exclusively (triggers RCA pricing engine)
-```
-
-All pricing-sensitive mutations (Quantity, Discount, UnitPrice) route through the PlaceQuote API via `PlaceQuote.PlaceQuoteRLMApexProcessor.execute()`. Raw DML is **never** used for pricing fields — it bypasses the RCA pricing engine.
-
-### Component Hierarchy
-
-| Component | Purpose |
-|-----------|---------|
-| `mobileTransactionLineEditor` | Parent container — orchestrates the full TLE experience |
-| `mobileTleLineList` | Scrollable list of quote line cards |
-| `mobileTleLineCard` | Individual quote line card with pricing and actions |
-| `mobileTleBottomSheet` | iOS-style action sheet for line operations |
-| `mobileTleProductBrowser` | Product search and add-to-quote interface |
-| `mobileTleProductCard` | Product card within the browser |
-| `mobileTleConfigurator` | Bundle configurator main component |
-| `mobileTleConfigGroup` | Product Component Group renderer with cardinality validation |
-| `mobileTleConfigOption` | Individual option card with checkbox and quantity |
-| `mobileTleConfigAttributes` | Attribute editing panel (Picklist, Number, Text) |
-| `mobileTleUtils` | Shared utility functions |
-| `quoteLineBundleEditor` | Desktop-oriented bundle editor |
-| `dealDeskOptimizer` | Deal desk optimization component |
-
-### Apex Classes
-
-| Class | Purpose |
-|-------|---------|
-| `MobileTleController` | Main controller — line fetching, PlaceQuote repricing, bundle config |
-| `QuoteLineEditorController` | Desktop editor controller (FieldSet-based) |
-
----
-
-## Project Structure
+- **All pricing** flows through the PlaceQuote Apex API — no raw DML on QuoteLineItems.
+- **All data reads** use SOQL queries — no UI API, no wire adapters for RCA data.
+- **Bundle configuration** uses PlaceQuote with full configuration validation (no `Skip`).
+- **Inline edits** trigger PlaceQuote PATCH repricing for real-time price updates.
 
 ```
-Atlas/
-├── force-app/main/default/
-│   ├── classes/          # 3 Apex classes
-│   ├── lwc/              # 13 LWC bundles
-│   ├── labels/           # 16 Custom Labels (ES/EN)
-│   └── objects/          # FieldSet: Quote_Line_Editor_Columns
-├── manifest/
-│   └── package.xml       # 114 components
-├── docs/
-│   ├── recipes/          # Implementation recipes
-│   │   ├── placequote-patterns.md
-│   │   ├── bundle-configuration.md
-│   │   └── mobile-lwc-architecture.md
-│   └── references/
-│       └── placequote-super-reference.md
-└── README.md
+┌─────────────────┐     ┌──────────────────┐     ┌───────────────┐
+│  Mobile LWC     │────▶│  Apex Controller  │────▶│  PlaceQuote   │
+│  (UI Layer)     │◀────│  (SOQL + DML)     │◀────│  Engine (RCA) │
+└─────────────────┘     └──────────────────┘     └───────────────┘
 ```
 
----
+## Component Inventory
+
+| Component | Type | Purpose |
+|-----------|------|---------|
+| `mobileTleMain` | LWC | Main container — orchestrates quote line editor |
+| `mobileTleLineEditor` | LWC | Inline line editing with PlaceQuote repricing |
+| `mobileTleBundleConfigurator` | LWC | Bundle attribute selection and configuration |
+| `mobileTleProductSearch` | LWC | Product catalog search and add-to-quote |
+| `MobileTleController` | Apex | Server-side controller — SOQL queries, PlaceQuote calls |
+| `MobileTlePlaceQuoteService` | Apex | PlaceQuote request builder — graph construction, Force/Skip logic |
+| `MobileTleTestFactory` | Apex | Test data factory for unit tests |
 
 ## Documentation
 
-### Recipes
+| File | Description |
+|------|-------------|
+| `docs/recipes/placequote-patterns.md` | PlaceQuote usage patterns for RCA |
+| `docs/recipes/bundle-configuration.md` | Bundle configuration patterns |
+| `docs/recipes/mobile-lwc-architecture.md` | Mobile LWC architecture guide |
+| `docs/references/PlaceQuote in RCA Super Reference.md` | Complete PlaceQuote API reference |
 
-| Recipe | Description |
-|--------|-------------|
-| [PlaceQuote Patterns](docs/recipes/placequote-patterns.md) | All PlaceQuote API patterns: add, update, clone, delete, ParentQuoteLineItemId workaround |
-| [Bundle Configuration](docs/recipes/bundle-configuration.md) | Data model chain, loading config, saving config, nested bundles, attribute handling |
-| [Mobile LWC Architecture](docs/recipes/mobile-lwc-architecture.md) | Component hierarchy, event patterns, design decisions |
+## Version History
 
-### References
-
-| Reference | Description |
-|-----------|-------------|
-| [PlaceQuote Super Reference](docs/references/placequote-super-reference.md) | Complete API reference for the PlaceQuote namespace — classes, enums, code examples, best practices |
-
----
-
-## Changelog
-
-### v1.2 (June 13, 2026) — Current
-
-- **Fix: Repricing bug (BUG-CDO-001)** — Quantity/Discount/UnitPrice inline edits now route through PlaceQuote API instead of raw DML, correctly triggering the RCA pricing engine
-- **Fix: Missing FieldSet** — Added `Quote_Line_Editor_Columns` FieldSet on QuoteLineItem
-
-### v1.1 (June 12, 2026)
-
-- Added FieldSet metadata for `Quote_Line_Editor_Columns`
-- Updated `package.xml` with FieldSet type entry
-
-### v1.0 (June 11, 2026)
-
-- Initial release: 13 LWC bundles, 3 Apex classes, 16 Custom Labels
-- Full Mobile TLE with bundle configurator
-- PlaceQuote-based repricing and product addition
-- Multi-language support (ES/EN)
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 2026-06-10 | Initial release — quote line editor, product search |
+| 1.1 | 2026-06-11 | FieldSet fix (Quote_Line_Editor_Columns) |
+| 1.2 | 2026-06-12 | Repricing fix (PlaceQuote PATCH), clone attributes |
+| 1.3 | 2026-06-13 | CurrencyIsoCode fallback for multi-currency orgs |
+| 1.4 | 2026-06-15 | Date serialization fix (yyyy-MM-dd), TermDefined selling model support |
 
 ---
 
-## License
+## GitHub Repository
 
-This project is provided as an unmanaged package for Salesforce Solution Engineers. It is not an official Salesforce product.
+```
+https://git.soma.salesforce.com/glopez/rca-mobile-lwc
+```
+
+---
+
+*Built with the PlaceQuote-Only + SOQL-Only architecture pattern for Revenue Cloud Advanced.*
