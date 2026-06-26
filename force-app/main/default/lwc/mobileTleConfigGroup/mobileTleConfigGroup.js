@@ -10,7 +10,11 @@ import LBL_VALIDATION_MIN from '@salesforce/label/c.MTLE_CfgValidationMin';
 import LBL_VALIDATION_MAX from '@salesforce/label/c.MTLE_CfgValidationMax';
 
 function fmt(template, ...args) {
-    return template.replace(/\{(\d+)\}/g, (_, i) => args[i] ?? '');
+    if (!template) return '';
+    return template.replace(/\{(\d+)\}/g, (_, i) => {
+        const val = args[Number(i)];
+        return val !== null && val !== undefined ? String(val) : '';
+    });
 }
 
 export default class MobileTleConfigGroup extends LightningElement {

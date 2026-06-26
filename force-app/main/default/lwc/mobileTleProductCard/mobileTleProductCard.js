@@ -57,6 +57,12 @@ export default class MobileTleProductCard extends LightningElement {
         return !!this.product?.productDescription;
     }
 
+    get descriptionExcerpt() {
+        const desc = this.product?.productDescription || '';
+        if (desc.length <= 100) return desc;
+        return desc.substring(0, 97) + '…';
+    }
+
     get hasImage() {
         return !!this.product?.productImageUrl;
     }

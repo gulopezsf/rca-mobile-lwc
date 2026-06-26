@@ -364,6 +364,23 @@ public with sharing class MobileTleController {
             }
         }
 
+        // Detect catalog-level bundles (products with ProductComponentGroup records).
+        // This ensures isBundleParent is true even before child QLIs are created,
+        // so the Configure button appears for newly-added bundles like Valenciano Menu.
+        Set<Id> catalogBundleProductIds = new Set<Id>();
+        try {
+            for (AggregateResult ar : [
+                SELECT ParentProductId pid
+                FROM ProductComponentGroup
+                WHERE ParentProductId IN :productIds
+                GROUP BY ParentProductId
+            ]) {
+                catalogBundleProductIds.add((Id) ar.get('pid'));
+            }
+        } catch (Exception e) {
+            // non-fatal — fall back to QLI-only detection
+        }
+
         // Config flow resolution
         Map<Id, String> configFlowMap = resolveConfigFlowsByProduct(productIds);
         String defaultFlowApi = resolveDefaultConfigFlowApiName();
@@ -392,7 +409,9 @@ public with sharing class MobileTleController {
                 lr.currencyIsoCode = (String) qli.get('CurrencyIsoCode');
             }
 
-            lr.isBundleParent = parentLineIds.contains(qli.Id);
+            // Bundle detection: true if child QLIs exist OR product has component groups in catalog
+            lr.isBundleParent = parentLineIds.contains(qli.Id)
+                || (qli.Product2Id != null && catalogBundleProductIds.contains(qli.Product2Id));
             lr.childCount = childCountMap.containsKey(qli.Id) ? childCountMap.get(qli.Id) : 0;
 
             // Config flow
@@ -400,7 +419,9 @@ public with sharing class MobileTleController {
             if (String.isBlank(flowApi) && lr.isBundleParent && String.isNotBlank(defaultFlowApi)) {
                 flowApi = defaultFlowApi;
             }
-            lr.isConfigurable = String.isNotBlank(flowApi);
+            // For catalog bundles without any flow assignment, still mark as configurable
+            // so the built-in configurator (mobileTleConfigurator) can handle them.
+            lr.isConfigurable = String.isNotBlank(flowApi) || lr.isBundleParent;
             lr.configFlowApiName = flowApi;
 
             // Field values for extra FieldSet fields
@@ -768,6 +789,10 @@ public with sharing class MobileTleController {
             'Id', 'Product2Id', 'UnitPrice',
             'Product2.Name', 'Product2.ProductCode', 'Product2.DisplayUrl'
         };
+        // Include Description if the field exists on Product2
+        if (Schema.SObjectType.Product2.fields.getMap().containsKey('Description')) {
+            selectFields.add('Product2.Description');
+        }
         Map<String, Schema.SObjectField> pbeMap = Schema.SObjectType.PricebookEntry.fields.getMap();
         if (pbeMap.containsKey('CurrencyIsoCode')) {
             selectFields.add('CurrencyIsoCode');
@@ -812,6 +837,9 @@ public with sharing class MobileTleController {
             card.productName = p2 != null ? (String) p2.get('Name') : null;
             card.productCode = p2 != null ? (String) p2.get('ProductCode') : null;
             card.productImageUrl = p2 != null ? (String) p2.get('DisplayUrl') : null;
+            if (p2 != null && Schema.SObjectType.Product2.fields.getMap().containsKey('Description')) {
+                card.productDescription = (String) p2.get('Description');
+            }
             card.unitPrice = pbe.UnitPrice;
             if (pbeMap.containsKey('CurrencyIsoCode')) {
                 card.currencyIsoCode = (String) pbe.get('CurrencyIsoCode');
@@ -871,6 +899,10 @@ public with sharing class MobileTleController {
             'Id', 'Product2Id', 'UnitPrice',
             'Product2.Name', 'Product2.ProductCode', 'Product2.DisplayUrl'
         };
+        // Include Description if the field exists on Product2
+        if (Schema.SObjectType.Product2.fields.getMap().containsKey('Description')) {
+            selectFields.add('Product2.Description');
+        }
         Map<String, Schema.SObjectField> pbeMap = Schema.SObjectType.PricebookEntry.fields.getMap();
         if (pbeMap.containsKey('CurrencyIsoCode')) {
             selectFields.add('CurrencyIsoCode');
@@ -906,6 +938,9 @@ public with sharing class MobileTleController {
             card.productName = p2 != null ? (String) p2.get('Name') : null;
             card.productCode = p2 != null ? (String) p2.get('ProductCode') : null;
             card.productImageUrl = p2 != null ? (String) p2.get('DisplayUrl') : null;
+            if (p2 != null && Schema.SObjectType.Product2.fields.getMap().containsKey('Description')) {
+                card.productDescription = (String) p2.get('Description');
+            }
             card.unitPrice = pbe.UnitPrice;
             if (pbeMap.containsKey('CurrencyIsoCode')) {
                 card.currencyIsoCode = (String) pbe.get('CurrencyIsoCode');
@@ -2639,21 +2674,38 @@ public with sharing class MobileTleController {
 
     /**
      * Resolve PricebookEntries for a set of product IDs using the quote's pricebook.
+     * In multi-currency orgs, filters by the Quote's CurrencyIsoCode so that the
+     * returned PBEs match the Quote currency (prevents "currency code is different"
+     * errors from PlaceQuote).
      */
     private static Map<Id, PricebookEntry> getChildPricebookEntries(Id quoteId, Set<Id> productIds) {
         Map<Id, PricebookEntry> result = new Map<Id, PricebookEntry>();
         if (productIds == null || productIds.isEmpty()) return result;
         try {
-            Quote q = [SELECT Pricebook2Id FROM Quote WHERE Id = :quoteId WITH SECURITY_ENFORCED LIMIT 1];
+            // Query Quote for pricebook AND currency (multi-currency aware)
+            Boolean isMulti = Schema.SObjectType.Quote.fields.getMap().containsKey('CurrencyIsoCode');
+            List<String> qFields = new List<String>{ 'Id', 'Pricebook2Id' };
+            if (isMulti) qFields.add('CurrencyIsoCode');
+            String qSoql = 'SELECT ' + String.join(qFields, ',') +
+                ' FROM Quote WHERE Id = :quoteId WITH SECURITY_ENFORCED LIMIT 1';
+            List<Quote> qRows = (List<Quote>) Database.query(qSoql);
+            if (qRows.isEmpty()) return result;
+            Quote q = qRows[0];
             if (q.Pricebook2Id == null) return result;
-            for (PricebookEntry pbe : [
-                SELECT Id, Product2Id, UnitPrice
-                FROM PricebookEntry
-                WHERE Pricebook2Id = :q.Pricebook2Id
-                  AND Product2Id IN :productIds
-                  AND IsActive = true
-                WITH SECURITY_ENFORCED
-            ]) {
+
+            String quoteCurrency = isMulti ? (String) q.get('CurrencyIsoCode') : null;
+
+            // Build PBE query with currency filter when applicable
+            String pbeSoql = 'SELECT Id, Product2Id, UnitPrice FROM PricebookEntry' +
+                ' WHERE Pricebook2Id = :pbId AND Product2Id IN :productIds AND IsActive = true';
+            Id pbId = q.Pricebook2Id;
+
+            if (isMulti && String.isNotBlank(quoteCurrency)) {
+                pbeSoql += ' AND CurrencyIsoCode = :quoteCurrency';
+            }
+            pbeSoql += ' WITH SECURITY_ENFORCED';
+
+            for (PricebookEntry pbe : (List<PricebookEntry>) Database.query(pbeSoql)) {
                 result.put(pbe.Product2Id, pbe);
             }
         } catch (Exception e) {

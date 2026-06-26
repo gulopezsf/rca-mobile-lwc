@@ -17,6 +17,9 @@
                 <template if:true={productCode}>
                     <span class="mtle-prod-code">{productCode}</span>
                 </template>
+                <template if:true={hasDescription}>
+                    <span class="mtle-prod-desc">{descriptionExcerpt}</span>
+                </template>
                 <!-- Badges: Bundle / Configurable -->
                 <template if:true={showBadges}>
                     <div class="mtle-prod-badges">

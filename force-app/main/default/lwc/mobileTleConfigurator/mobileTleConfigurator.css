@@ -108,3 +108,33 @@
         height: 100vh;
     }
 }
+
+/* Desktop: render as a centred modal card over a semi-transparent backdrop.
+   The overlay and backdrop both keep a z-index above the Lightning header
+   (typically z-index 5000–6000).  The backdrop covers the entire viewport
+   so nothing behind it (Quote header, global nav) is visible. */
+@media (min-width: 48rem) {
+    .mtle-config-overlay {
+        /* full viewport coverage, then centre the content via flexbox */
+        inset: 0;
+        z-index: 10000006;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mtle-config-container {
+        width: 90%;
+        max-width: 56rem;     /* ~900px */
+        max-height: 85vh;
+        border-radius: 0.75rem;
+        background: var(--slds-g-color-neutral-base-100, #fff);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+        overflow: hidden;     /* keep border-radius clipping */
+    }
+
+    .mtle-config-backdrop {
+        z-index: 10000005;
+    }
+}
