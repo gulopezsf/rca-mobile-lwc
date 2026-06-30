@@ -1,9 +1,21 @@
 .mtle-cfg-attrs {
+    position: relative;
     border: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
     border-radius: 0.75rem;
     margin-bottom: 0.75rem;
     overflow: hidden;
     background: var(--slds-g-color-neutral-base-100, #fff);
+}
+
+.mtle-cfg-attr-repricing {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 0.75rem;
+    z-index: 10;
 }
 
 .mtle-cfg-attrs-header {
@@ -50,4 +62,27 @@
 
 .mtle-cfg-attr-field:last-child {
     margin-bottom: 0;
+}
+
+.mtle-cfg-attr-label-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.25rem;
+}
+
+.mtle-cfg-attr-required {
+    color: #ea001e;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.mtle-cfg-attr-price-badge {
+    font-size: 0.75rem;
+    padding: 0.0625rem 0.375rem;
+    background: #fef3cd;
+    border-radius: 0.5rem;
+    color: #856404;
+    font-weight: 600;
+    white-space: nowrap;
 }

@@ -48,6 +48,16 @@
             </div>
         </template>
 
+        <!-- Option-level attributes (when selected and has attributes) -->
+        <template lwc:if={hasOptionAttributes}>
+            <div class="mtle-cfg-option-attrs">
+                <c-mobile-tle-config-attributes
+                    attributes={optionAttributes}
+                    onattributechange={handleOptionAttributeChange}
+                ></c-mobile-tle-config-attributes>
+            </div>
+        </template>
+
         <!-- Nested bundle groups -->
         <template lwc:if={hasChildGroups}>
             <template lwc:if={isSelected}>

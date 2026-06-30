@@ -65,12 +65,33 @@
 .mtle-config-footer {
     flex: 0 0 auto;
     display: flex;
-    align-items: center;
-    justify-content: flex-end;
+    flex-direction: column;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
     border-top: 1px solid var(--slds-g-color-border-base-1, #e5e5e5);
     background: var(--slds-g-color-neutral-base-100, #fff);
+}
+
+.mtle-config-footer-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.mtle-config-reprice-msg {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    color: #856404;
+    background: #fef3cd;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+}
+
+.mtle-config-reprice-icon {
+    flex: 0 0 auto;
 }
 
 .mtle-config-save-btn {

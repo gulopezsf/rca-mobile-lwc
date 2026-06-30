@@ -20,7 +20,8 @@
 
             <!-- Body -->
             <div class="mtle-config-body" onoptionchange={handleOptionChange}
-                 onattributechange={handleAttributeChange}>
+                 onattributechange={handleAttributeChange}
+                 onoptionattributechange={handleOptionAttributeChange}>
 
                 <!-- Loading spinner -->
                 <template lwc:if={loading}>
@@ -43,6 +44,7 @@
                     <template lwc:if={hasAttributes}>
                         <c-mobile-tle-config-attributes
                             attributes={workingAttributes}
+                            repricing={repricing}
                         ></c-mobile-tle-config-attributes>
                     </template>
 
@@ -62,17 +64,26 @@
 
             <!-- Footer with Save / Close -->
             <footer class="mtle-config-footer">
-                <lightning-button
-                    label={label.close}
-                    onclick={handleClose}
-                ></lightning-button>
-                <lightning-button
-                    variant="brand"
-                    label={saveLabel}
-                    onclick={handleSave}
-                    disabled={saveDisabled}
-                    class="mtle-config-save-btn"
-                ></lightning-button>
+                <template lwc:if={showRepriceMessage}>
+                    <div class="mtle-config-reprice-msg">
+                        <lightning-icon icon-name="utility:info" size="xx-small"
+                            class="mtle-config-reprice-icon"></lightning-icon>
+                        <span>Price will be recalculated</span>
+                    </div>
+                </template>
+                <div class="mtle-config-footer-actions">
+                    <lightning-button
+                        label={label.close}
+                        onclick={handleClose}
+                    ></lightning-button>
+                    <lightning-button
+                        variant="brand"
+                        label={saveLabel}
+                        onclick={handleSave}
+                        disabled={saveDisabled}
+                        class="mtle-config-save-btn"
+                    ></lightning-button>
+                </div>
             </footer>
         </div>
     </section>

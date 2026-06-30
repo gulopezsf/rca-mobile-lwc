@@ -753,6 +753,38 @@
         <shortDescription>No attributes available</shortDescription>
         <categories>MobileTLE</categories>
     </labels>
+    <labels>
+        <fullName>MTLE_CfgAttrRequired</fullName>
+        <value>Required</value>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>MTLE_CfgAttrRequired</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgAttrPriceImpact</fullName>
+        <value>Affects pricing</value>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>MTLE_CfgAttrPriceImpact</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgAttrValidationFailed</fullName>
+        <value>Please fill all required attributes before saving</value>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>MTLE_CfgAttrValidationFailed</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
+    <labels>
+        <fullName>MTLE_CfgAttrSaving</fullName>
+        <value>Recalculating prices...</value>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>MTLE_CfgAttrSaving</shortDescription>
+        <categories>MobileTLE</categories>
+    </labels>
 
     <!-- ─── Product (generic) ───────────────────────────────────────── -->
     <labels>

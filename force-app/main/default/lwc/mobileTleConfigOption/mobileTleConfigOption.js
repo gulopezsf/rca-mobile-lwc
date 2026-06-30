@@ -114,6 +114,14 @@ export default class MobileTleConfigOption extends LightningElement {
         return this.showNestedGroups ? 'utility:chevronup' : 'utility:chevrondown';
     }
 
+    get hasOptionAttributes() {
+        return this.isSelected && this.option?.attributes?.length > 0;
+    }
+
+    get optionAttributes() {
+        return this.option?.attributes || [];
+    }
+
     get cardClass() {
         let cls = 'mtle-cfg-option';
         if (this.isSelected) cls += ' mtle-cfg-option--selected';
@@ -165,6 +173,23 @@ export default class MobileTleConfigOption extends LightningElement {
     // Relay nested group changes upward
     handleNestedGroupChange(event) {
         // Just let it bubble — composed: true on optionchange already does this
+    }
+
+    handleOptionAttributeChange(event) {
+        event.stopPropagation();
+        const { attributeDefinitionId, value, picklistValueId } = event.detail;
+        this.dispatchEvent(new CustomEvent('optionattributechange', {
+            detail: {
+                attributeDefinitionId,
+                value,
+                picklistValueId,
+                childProduct2Id: this.option.childProduct2Id,
+                quoteLineItemId: this.option.quoteLineItemId || null,
+                productRelatedComponentId: this.option.productRelatedComponentId
+            },
+            bubbles: true,
+            composed: true
+        }));
     }
 
     // ─── Private ──────────────────────────────────────────────────────────

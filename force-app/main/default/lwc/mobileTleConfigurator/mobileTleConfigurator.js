@@ -3,6 +3,7 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { reduceError, formatCurrency } from 'c/mobileTleUtils';
 import loadBundleConfiguration from '@salesforce/apex/MobileTleController.loadBundleConfiguration';
 import saveBundleConfiguration from '@salesforce/apex/MobileTleController.saveBundleConfiguration';
+import saveAttributesWithReprice from '@salesforce/apex/MobileTleController.saveAttributesWithReprice';
 
 // Custom Labels
 import LBL_CONFIGURE_PRODUCT from '@salesforce/label/c.MTLE_ConfigureProduct';
@@ -17,6 +18,8 @@ import LBL_CFG_SAVED from '@salesforce/label/c.MTLE_CfgSaved';
 import LBL_CFG_NO_CHANGES from '@salesforce/label/c.MTLE_CfgNoChanges';
 import LBL_CFG_VALIDATION_ERRORS from '@salesforce/label/c.MTLE_CfgValidationErrors';
 import LBL_CFG_LOAD_ERROR from '@salesforce/label/c.MTLE_CfgLoadError';
+import LBL_CFG_ATTR_VALIDATION from '@salesforce/label/c.MTLE_CfgAttrValidationFailed';
+import LBL_CFG_ATTR_SAVING from '@salesforce/label/c.MTLE_CfgAttrSaving';
 
 export default class MobileTleConfigurator extends LightningElement {
     @api quoteId;
@@ -34,6 +37,12 @@ export default class MobileTleConfigurator extends LightningElement {
 
     // Working copy of parent attributes
     @track workingAttributes = [];
+
+    // Price-impacting attribute change flag
+    @track hasPriceImpactingChanges = false;
+
+    // Repricing spinner flag
+    @track repricing = false;
 
     // Map of original state for diff computation
     _originalSnapshot = new Map(); // key: productRelatedComponentId → { isSelected, quantity }
@@ -81,7 +90,12 @@ export default class MobileTleConfigurator extends LightningElement {
     }
 
     get saveLabel() {
+        if (this.saving && this.hasPriceImpactingChanges) return LBL_CFG_ATTR_SAVING;
         return this.saving ? LBL_CFG_SAVING : LBL_SAVE;
+    }
+
+    get showRepriceMessage() {
+        return this.hasPriceImpactingChanges && !this.saving;
     }
 
     get saveDisabled() {
@@ -134,7 +148,7 @@ export default class MobileTleConfigurator extends LightningElement {
         );
     }
 
-    // ─── Attribute change handler ─────────────────────────────────────────
+    // ─── Attribute change handler (parent-level) ──────────────────────────
 
     handleAttributeChange(event) {
         event.stopPropagation();
@@ -145,11 +159,34 @@ export default class MobileTleConfigurator extends LightningElement {
             }
             return attr;
         });
+        this._checkPriceImpactingChanges();
+    }
+
+    // ─── Option-level attribute change handler ──────────────────────────
+
+    handleOptionAttributeChange(event) {
+        event.stopPropagation();
+        const { attributeDefinitionId, value, picklistValueId, productRelatedComponentId } = event.detail;
+
+        this.workingGroups = this._applyOptionAttributeChange(
+            this.workingGroups,
+            productRelatedComponentId,
+            attributeDefinitionId,
+            value,
+            picklistValueId
+        );
+        this._checkPriceImpactingChanges();
     }
 
     // ─── Save ─────────────────────────────────────────────────────────────
 
     async handleSave() {
+        // Validate required attributes first
+        if (!this._validateAttributes()) {
+            this.toast(LBL_ERROR, LBL_CFG_ATTR_VALIDATION, 'error');
+            return;
+        }
+
         // Validate all groups
         const groupEls = this.template.querySelectorAll('c-mobile-tle-config-group');
         const validationErrors = [];
@@ -172,18 +209,34 @@ export default class MobileTleConfigurator extends LightningElement {
         }
 
         this.saving = true;
+        if (this.hasPriceImpactingChanges) {
+            this.repricing = true;
+        }
         try {
-            await saveBundleConfiguration({
+            const updatedState = await saveBundleConfiguration({
                 quoteId: this.quoteId,
                 parentLineId: this.lineId,
                 configJson: JSON.stringify(changes)
             });
-            this.toast(LBL_SUCCESS, LBL_CFG_SAVED, 'success');
+            // Update working state with returned prices
+            if (updatedState) {
+                this.configState = updatedState;
+                this.workingGroups = this._deepCloneGroups(updatedState.groups || []);
+                this.workingAttributes = JSON.parse(JSON.stringify(updatedState.attributes || []));
+                this._snapshotOriginal(this.workingGroups);
+                this.hasPriceImpactingChanges = false;
+            }
+            if (this.repricing) {
+                this.toast(LBL_SUCCESS, 'Prices updated', 'success');
+            } else {
+                this.toast(LBL_SUCCESS, LBL_CFG_SAVED, 'success');
+            }
             this.dispatchEvent(new CustomEvent('done'));
         } catch (e) {
             this.toast(LBL_ERROR, reduceError(e), 'error');
         } finally {
             this.saving = false;
+            this.repricing = false;
         }
     }
 
@@ -236,10 +289,13 @@ export default class MobileTleConfigurator extends LightningElement {
                     attributes: this._getAttributeChanges(opt)
                 });
             } else if (orig.isSelected && opt.isSelected) {
-                // Both selected — check quantity change
+                // Both selected — check quantity or attribute changes
                 const origQty = orig.quantity ?? 0;
                 const curQty = opt.currentQuantity ?? opt.defaultQuantity ?? 1;
-                if (origQty !== curQty) {
+                const attrChanges = this._getAttributeChanges(opt, orig);
+                const qtyChanged = origQty !== curQty;
+                const attrsChanged = attrChanges && attrChanges.length > 0;
+                if (qtyChanged || attrsChanged) {
                     changes.push({
                         action: 'UPDATE',
                         productRelatedComponentId: opt.productRelatedComponentId,
@@ -248,7 +304,7 @@ export default class MobileTleConfigurator extends LightningElement {
                         quoteLineItemId: orig.quoteLineItemId,
                         quantity: curQty,
                         unitPrice: opt.currentUnitPrice,
-                        attributes: this._getAttributeChanges(opt)
+                        attributes: attrChanges
                     });
                 }
             }
@@ -257,6 +313,7 @@ export default class MobileTleConfigurator extends LightningElement {
         // Attribute changes on parent line
         if (this.workingAttributes && this.configState?.attributes) {
             const origAttrs = this.configState.attributes;
+            const parentAttrChanges = [];
             this.workingAttributes.forEach((wa) => {
                 const origAttr = origAttrs.find(
                     (a) => a.attributeDefinitionId === wa.attributeDefinitionId
@@ -264,27 +321,57 @@ export default class MobileTleConfigurator extends LightningElement {
                 const origVal = origAttr?.currentValue ?? '';
                 const curVal = wa.currentValue ?? '';
                 if (origVal !== curVal) {
-                    // Parent attribute changed — include as a special change entry
-                    // These go into the first ADD/UPDATE change or as standalone
-                    // For now, we'll handle these via the saveBundleConfiguration
-                    // which checks parent attributes separately
+                    parentAttrChanges.push({
+                        attributeDefinitionId: wa.attributeDefinitionId,
+                        value: curVal,
+                        picklistValueId: wa._picklistValueId || null
+                    });
                 }
             });
+            if (parentAttrChanges.length > 0) {
+                changes.push({
+                    action: 'UPDATE_PARENT_ATTRIBUTES',
+                    quoteLineItemId: this.lineId,
+                    attributes: parentAttrChanges
+                });
+            }
         }
 
         return changes;
     }
 
-    _getAttributeChanges(opt) {
+    _getAttributeChanges(opt, orig) {
         if (!opt.attributes || opt.attributes.length === 0) return null;
-        // Only include attributes that have a value set
-        return opt.attributes
+
+        // If we have an original snapshot with attributes, only include changed ones
+        if (orig && orig.attributes && orig.attributes.length > 0) {
+            const changed = [];
+            for (const attr of opt.attributes) {
+                const origAttr = orig.attributes.find(
+                    (a) => a.attributeDefinitionId === attr.attributeDefinitionId
+                );
+                const origVal = origAttr?.currentValue ?? '';
+                const curVal = attr.currentValue ?? '';
+                if (origVal !== curVal) {
+                    changed.push({
+                        attributeDefinitionId: attr.attributeDefinitionId,
+                        value: curVal,
+                        picklistValueId: attr._picklistValueId || null
+                    });
+                }
+            }
+            return changed.length > 0 ? changed : null;
+        }
+
+        // No original — include all attributes with values (new option being added)
+        const attrs = opt.attributes
             .filter((a) => a.currentValue != null && a.currentValue !== '')
             .map((a) => ({
                 attributeDefinitionId: a.attributeDefinitionId,
                 value: a.currentValue,
                 picklistValueId: a._picklistValueId || null
             }));
+        return attrs.length > 0 ? attrs : null;
     }
 
     // ─── State manipulation helpers ───────────────────────────────────────
@@ -322,7 +409,13 @@ export default class MobileTleConfigurator extends LightningElement {
             this._originalSnapshot.set(opt.productRelatedComponentId, {
                 isSelected: opt.isSelected === true,
                 quantity: opt.currentQuantity ?? opt.defaultQuantity ?? 0,
-                quoteLineItemId: opt.quoteLineItemId || null
+                quoteLineItemId: opt.quoteLineItemId || null,
+                attributes: opt.attributes
+                    ? opt.attributes.map((a) => ({
+                          attributeDefinitionId: a.attributeDefinitionId,
+                          currentValue: a.currentValue ?? ''
+                      }))
+                    : []
             });
         });
     }
@@ -337,6 +430,110 @@ export default class MobileTleConfigurator extends LightningElement {
                 }
             }
         }
+    }
+
+    _applyOptionAttributeChange(groups, prcId, attrDefId, value, picklistValueId) {
+        return groups.map((g) => ({
+            ...g,
+            options: g.options.map((opt) => {
+                if (opt.productRelatedComponentId === prcId && opt.attributes) {
+                    return {
+                        ...opt,
+                        attributes: opt.attributes.map((a) => {
+                            if (a.attributeDefinitionId === attrDefId) {
+                                return { ...a, currentValue: value, _picklistValueId: picklistValueId };
+                            }
+                            return a;
+                        })
+                    };
+                }
+                // Recurse into nested child groups
+                if (opt.childGroups && opt.childGroups.length > 0) {
+                    return {
+                        ...opt,
+                        childGroups: this._applyOptionAttributeChange(
+                            opt.childGroups, prcId, attrDefId, value, picklistValueId
+                        )
+                    };
+                }
+                return opt;
+            })
+        }));
+    }
+
+    _validateAttributes() {
+        // Check parent-level required attributes
+        if (this.workingAttributes) {
+            for (const attr of this.workingAttributes) {
+                if (attr.isRequired === true) {
+                    const val = attr.currentValue;
+                    if (val === null || val === undefined || val === '') return false;
+                }
+            }
+        }
+
+        // Check option-level required attributes (only for selected options)
+        let valid = true;
+        this._walkOptions(this.workingGroups, (opt) => {
+            if (!valid) return;
+            if (opt.isSelected && opt.attributes) {
+                for (const attr of opt.attributes) {
+                    if (attr.isRequired === true) {
+                        const val = attr.currentValue;
+                        if (val === null || val === undefined || val === '') {
+                            valid = false;
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+        return valid;
+    }
+
+    _checkPriceImpactingChanges() {
+        let hasPriceImpact = false;
+
+        // Check parent attributes
+        if (this.workingAttributes && this.configState?.attributes) {
+            const origAttrs = this.configState.attributes;
+            for (const wa of this.workingAttributes) {
+                if (wa.isPriceImpacting !== true) continue;
+                const origAttr = origAttrs.find(
+                    (a) => a.attributeDefinitionId === wa.attributeDefinitionId
+                );
+                const origVal = origAttr?.currentValue ?? '';
+                const curVal = wa.currentValue ?? '';
+                if (origVal !== curVal) {
+                    hasPriceImpact = true;
+                    break;
+                }
+            }
+        }
+
+        // Check option-level attributes
+        if (!hasPriceImpact) {
+            this._walkOptions(this.workingGroups, (opt) => {
+                if (hasPriceImpact) return;
+                if (!opt.isSelected || !opt.attributes) return;
+                const orig = this._originalSnapshot.get(opt.productRelatedComponentId);
+                if (!orig) return;
+                for (const attr of opt.attributes) {
+                    if (attr.isPriceImpacting !== true) continue;
+                    const origAttr = (orig.attributes || []).find(
+                        (a) => a.attributeDefinitionId === attr.attributeDefinitionId
+                    );
+                    const origVal = origAttr?.currentValue ?? '';
+                    const curVal = attr.currentValue ?? '';
+                    if (origVal !== curVal) {
+                        hasPriceImpact = true;
+                        return;
+                    }
+                }
+            });
+        }
+
+        this.hasPriceImpactingChanges = hasPriceImpact;
     }
 
     _deepCloneGroups(groups) {

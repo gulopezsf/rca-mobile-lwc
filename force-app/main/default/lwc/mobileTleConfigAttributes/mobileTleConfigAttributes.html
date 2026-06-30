@@ -1,6 +1,11 @@
 <template>
     <template lwc:if={hasAttributes}>
         <div class="mtle-cfg-attrs">
+            <template lwc:if={repricing}>
+                <div class="mtle-cfg-attr-repricing">
+                    <lightning-spinner alternative-text="Recalculating..." size="small"></lightning-spinner>
+                </div>
+            </template>
             <button type="button" class="mtle-cfg-attrs-header" onclick={handleToggle}>
                 <lightning-icon icon-name={headerIcon} size="xx-small"
                     class="mtle-cfg-attrs-chevron"></lightning-icon>
@@ -14,6 +19,17 @@
                         <div key={attr.fieldKey} class="mtle-cfg-attr-field">
                             <!-- Picklist -->
                             <template lwc:if={attr.isPicklist}>
+                                <div class="mtle-cfg-attr-label-row">
+                                    <label class="slds-form-element__label">
+                                        {attr.attributeName}
+                                        <template lwc:if={attr.isRequired}>
+                                            <abbr class="mtle-cfg-attr-required" title={label.required}>*</abbr>
+                                        </template>
+                                    </label>
+                                    <template lwc:if={attr.isPriceImpacting}>
+                                        <span class="mtle-cfg-attr-price-badge" title={label.priceImpact}>⚡</span>
+                                    </template>
+                                </div>
                                 <lightning-combobox
                                     name={attr.attributeDefinitionId}
                                     label={attr.attributeName}
@@ -21,29 +37,94 @@
                                     options={attr.picklistOptions}
                                     onchange={handleChange}
                                     data-attr-id={attr.attributeDefinitionId}
-                                    variant="label-stacked"
+                                    variant="label-hidden"
                                 ></lightning-combobox>
                             </template>
                             <!-- Number -->
                             <template lwc:if={attr.isNumber}>
+                                <div class="mtle-cfg-attr-label-row">
+                                    <label class="slds-form-element__label">
+                                        {attr.attributeName}
+                                        <template lwc:if={attr.isRequired}>
+                                            <abbr class="mtle-cfg-attr-required" title={label.required}>*</abbr>
+                                        </template>
+                                    </label>
+                                    <template lwc:if={attr.isPriceImpacting}>
+                                        <span class="mtle-cfg-attr-price-badge" title={label.priceImpact}>⚡</span>
+                                    </template>
+                                </div>
                                 <lightning-input
                                     type="number"
                                     label={attr.attributeName}
                                     value={attr.currentValue}
                                     onchange={handleChange}
                                     data-attr-id={attr.attributeDefinitionId}
-                                    variant="label-stacked"
+                                    variant="label-hidden"
+                                ></lightning-input>
+                            </template>
+                            <!-- Boolean -->
+                            <template lwc:if={attr.isBoolean}>
+                                <div class="mtle-cfg-attr-label-row">
+                                    <label class="slds-form-element__label">
+                                        {attr.attributeName}
+                                        <template lwc:if={attr.isRequired}>
+                                            <abbr class="mtle-cfg-attr-required" title={label.required}>*</abbr>
+                                        </template>
+                                    </label>
+                                    <template lwc:if={attr.isPriceImpacting}>
+                                        <span class="mtle-cfg-attr-price-badge" title={label.priceImpact}>⚡</span>
+                                    </template>
+                                </div>
+                                <lightning-input
+                                    type="checkbox"
+                                    checked={attr.booleanChecked}
+                                    onchange={handleBooleanChange}
+                                    data-attr-id={attr.attributeDefinitionId}
+                                    label=""
+                                ></lightning-input>
+                            </template>
+                            <!-- Date -->
+                            <template lwc:if={attr.isDate}>
+                                <div class="mtle-cfg-attr-label-row">
+                                    <label class="slds-form-element__label">
+                                        {attr.attributeName}
+                                        <template lwc:if={attr.isRequired}>
+                                            <abbr class="mtle-cfg-attr-required" title={label.required}>*</abbr>
+                                        </template>
+                                    </label>
+                                    <template lwc:if={attr.isPriceImpacting}>
+                                        <span class="mtle-cfg-attr-price-badge" title={label.priceImpact}>⚡</span>
+                                    </template>
+                                </div>
+                                <lightning-input
+                                    type="date"
+                                    label=""
+                                    value={attr.currentValue}
+                                    onchange={handleChange}
+                                    data-attr-id={attr.attributeDefinitionId}
+                                    variant="label-hidden"
                                 ></lightning-input>
                             </template>
                             <!-- Text (default) -->
                             <template lwc:if={attr.isText}>
+                                <div class="mtle-cfg-attr-label-row">
+                                    <label class="slds-form-element__label">
+                                        {attr.attributeName}
+                                        <template lwc:if={attr.isRequired}>
+                                            <abbr class="mtle-cfg-attr-required" title={label.required}>*</abbr>
+                                        </template>
+                                    </label>
+                                    <template lwc:if={attr.isPriceImpacting}>
+                                        <span class="mtle-cfg-attr-price-badge" title={label.priceImpact}>⚡</span>
+                                    </template>
+                                </div>
                                 <lightning-input
                                     type="text"
                                     label={attr.attributeName}
                                     value={attr.currentValue}
                                     onchange={handleChange}
                                     data-attr-id={attr.attributeDefinitionId}
-                                    variant="label-stacked"
+                                    variant="label-hidden"
                                 ></lightning-input>
                             </template>
                         </div>

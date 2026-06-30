@@ -172,7 +172,7 @@ public with sharing class MobileTleController {
         @AuraEnabled public List<ConfigAttribute> attributes { get; set; }
     }
 
-    public class ConfigAttribute {
+    public class ConfigAttribute implements Comparable {
         @AuraEnabled public String attributeDefinitionId { get; set; }
         @AuraEnabled public String attributeName { get; set; }
         @AuraEnabled public String dataType { get; set; }
@@ -181,6 +181,16 @@ public with sharing class MobileTleController {
         @AuraEnabled public String currentValue { get; set; }
         @AuraEnabled public String quoteLineItemAttributeId { get; set; }
         @AuraEnabled public List<AttributePicklistOption> picklistValues { get; set; }
+        // v2.0
+        @AuraEnabled public Boolean isPriceImpacting { get; set; }
+        @AuraEnabled public Integer sequence { get; set; }
+
+        public Integer compareTo(Object other) {
+            ConfigAttribute o = (ConfigAttribute) other;
+            Integer s1 = this.sequence != null ? this.sequence : 999;
+            Integer s2 = o.sequence != null ? o.sequence : 999;
+            return s1 - s2;
+        }
     }
 
     public class AttributePicklistOption {
@@ -2110,6 +2120,98 @@ public with sharing class MobileTleController {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
+     * Query ProductAttributeDefinition + AttributePicklistValue for a product.
+     * Returns a map of AttributeDefinitionId → ConfigAttribute with full schema.
+     */
+    private static Map<Id, ConfigAttribute> getAttributeDefinitionsForProduct(Id product2Id) {
+        Map<Id, ConfigAttribute> result = new Map<Id, ConfigAttribute>();
+
+        try {
+            // Query ProductAttributeDefinition — links Product to AttributeDefinition
+            List<SObject> padRows = Database.query(
+                'SELECT Id, AttributeDefinitionId, AttributeDefinition.Name, ' +
+                'AttributeDefinition.DataType, DefaultValue, ' +
+                'IsRequired, IsPriceImpacting, Sequence ' +
+                'FROM ProductAttributeDefinition ' +
+                'WHERE ProductId = :product2Id ' +
+                'WITH SECURITY_ENFORCED ' +
+                'ORDER BY Sequence NULLS LAST, AttributeDefinition.Name'
+            );
+
+            Set<Id> picklistAttrDefIds = new Set<Id>();
+
+            for (SObject pad : padRows) {
+                ConfigAttribute ca = new ConfigAttribute();
+                ca.attributeDefinitionId = (String) pad.get('AttributeDefinitionId');
+
+                SObject attrDef = pad.getSObject('AttributeDefinition');
+                ca.attributeName = (String) attrDef.get('Name');
+                ca.dataType = (String) attrDef.get('DataType');
+                ca.defaultValue = (String) pad.get('DefaultValue');
+                ca.isRequired = (Boolean) pad.get('IsRequired');
+                ca.isPriceImpacting = (Boolean) pad.get('IsPriceImpacting');
+                ca.sequence = (Integer) pad.get('Sequence');
+                ca.currentValue = ca.defaultValue; // default until overridden by QLIA
+                ca.picklistValues = new List<AttributePicklistOption>();
+
+                result.put(Id.valueOf(ca.attributeDefinitionId), ca);
+
+                if (ca.dataType == 'Picklist') {
+                    picklistAttrDefIds.add(Id.valueOf(ca.attributeDefinitionId));
+                }
+            }
+
+            // Query picklist values for Picklist-type attributes
+            if (!picklistAttrDefIds.isEmpty()) {
+                // Get AttributePicklistDefinition IDs
+                Map<Id, Id> attrDefToPicklistDef = new Map<Id, Id>();
+                for (SObject apd : Database.query(
+                    'SELECT Id, AttributeDefinitionId ' +
+                    'FROM AttributePicklistDefinition ' +
+                    'WHERE AttributeDefinitionId IN :picklistAttrDefIds ' +
+                    'WITH SECURITY_ENFORCED'
+                )) {
+                    attrDefToPicklistDef.put((Id) apd.get('AttributeDefinitionId'), (Id) apd.get('Id'));
+                }
+
+                if (!attrDefToPicklistDef.isEmpty()) {
+                    Set<Id> picklistDefIds = new Set<Id>(attrDefToPicklistDef.values());
+
+                    // Reverse map: picklistDefId → attrDefId
+                    Map<Id, Id> picklistDefToAttrDef = new Map<Id, Id>();
+                    for (Id attrDefId : attrDefToPicklistDef.keySet()) {
+                        picklistDefToAttrDef.put(attrDefToPicklistDef.get(attrDefId), attrDefId);
+                    }
+
+                    for (SObject apv : Database.query(
+                        'SELECT Id, AttributePicklistDefinitionId, Label, Value, Sequence ' +
+                        'FROM AttributePicklistValue ' +
+                        'WHERE AttributePicklistDefinitionId IN :picklistDefIds ' +
+                        'WITH SECURITY_ENFORCED ' +
+                        'ORDER BY Sequence NULLS LAST, Label'
+                    )) {
+                        Id pickDefId = (Id) apv.get('AttributePicklistDefinitionId');
+                        Id attrDefId = picklistDefToAttrDef.get(pickDefId);
+
+                        if (attrDefId != null && result.containsKey(attrDefId)) {
+                            AttributePicklistOption opt = new AttributePicklistOption();
+                            opt.value = (String) apv.get('Value');
+                            opt.label = (String) apv.get('Label');
+                            opt.picklistValueId = (String) apv.get('Id');
+                            result.get(attrDefId).picklistValues.add(opt);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Non-fatal — ProductAttributeDefinition may not exist for this product
+            System.debug(LoggingLevel.WARN, 'getAttributeDefinitionsForProduct error: ' + e.getMessage());
+        }
+
+        return result;
+    }
+
+    /**
      * Load the full bundle configuration state for a given QuoteLineItem.
      * Joins catalog data (ProductComponentGroup, ProductRelatedComponent) with
      * the current quote state (child QuoteLineItems, QuoteLineItemAttributes).
@@ -2140,7 +2242,29 @@ public with sharing class MobileTleController {
         state.quantity = parentQli.Quantity;
         state.unitPrice = parentQli.UnitPrice;
         state.currencyIsoCode = getQuoteCurrency(q);
-        state.attributes = new List<ConfigAttribute>();
+        // Load parent-level attribute definitions from catalog
+        Map<Id, ConfigAttribute> parentAttrDefs = getAttributeDefinitionsForProduct(parentQli.Product2Id);
+
+        // Merge existing QuoteLineItemAttribute values for the parent line
+        try {
+            for (QuoteLineItemAttribute qlia : [
+                SELECT Id, AttributeDefinitionId, AttributeValue, AttributePicklistValueId
+                FROM QuoteLineItemAttribute
+                WHERE QuoteLineItemId = :quoteLineItemId
+                WITH SECURITY_ENFORCED
+            ]) {
+                if (parentAttrDefs.containsKey(qlia.AttributeDefinitionId)) {
+                    ConfigAttribute ca = parentAttrDefs.get(qlia.AttributeDefinitionId);
+                    ca.currentValue = qlia.AttributeValue;
+                    ca.quoteLineItemAttributeId = qlia.Id;
+                }
+            }
+        } catch (Exception e) {
+            // Non-fatal
+        }
+
+        state.attributes = new List<ConfigAttribute>(parentAttrDefs.values());
+        state.attributes.sort();
 
         // 2. Load groups and options from catalog (recursive, up to 3 levels)
         state.groups = loadConfigGroupsForProduct(
@@ -2289,6 +2413,9 @@ public with sharing class MobileTleController {
             opt.sequence = prc.Sequence;
             opt.attributes = new List<ConfigAttribute>();
 
+            // Load attribute definitions from catalog for this child product
+            Map<Id, ConfigAttribute> childAttrDefs = getAttributeDefinitionsForProduct(prc.ChildProductId);
+
             // PricebookEntry
             PricebookEntry pbe = pbeMap.get(prc.ChildProductId);
             if (pbe != null) {
@@ -2304,25 +2431,23 @@ public with sharing class MobileTleController {
                 opt.currentQuantity = existingChild.Quantity;
                 opt.currentUnitPrice = existingChild.UnitPrice;
 
-                // Attributes from QuoteLineItemAttribute
+                // Merge catalog definitions with existing QLIA values
                 List<QuoteLineItemAttribute> qlias = attrsByLineId.get(existingChild.Id);
                 if (qlias != null) {
                     for (QuoteLineItemAttribute qlia : qlias) {
-                        ConfigAttribute ca = new ConfigAttribute();
-                        ca.attributeDefinitionId = qlia.AttributeDefinitionId;
-                        ca.attributeName = qlia.AttributeDefinition?.Name;
-                        ca.dataType = qlia.AttributeDefinition?.DataType;
-                        ca.currentValue = qlia.AttributeValue;
-                        ca.quoteLineItemAttributeId = qlia.Id;
-                        ca.isRequired = false;
-                        ca.picklistValues = new List<AttributePicklistOption>();
-                        opt.attributes.add(ca);
+                        if (childAttrDefs.containsKey(qlia.AttributeDefinitionId)) {
+                            ConfigAttribute ca = childAttrDefs.get(qlia.AttributeDefinitionId);
+                            ca.currentValue = qlia.AttributeValue;
+                            ca.quoteLineItemAttributeId = qlia.Id;
+                        }
                     }
                 }
             } else {
                 opt.isSelected = prc.IsDefaultComponent && prc.IsComponentRequired;
                 opt.currentQuantity = prc.Quantity;
             }
+            opt.attributes = new List<ConfigAttribute>(childAttrDefs.values());
+            opt.attributes.sort();
 
             // Nested bundle detection + recursive load
             opt.isNestedBundle = nestedBundleProductIds.contains(prc.ChildProductId);
@@ -2371,10 +2496,12 @@ public with sharing class MobileTleController {
         List<ConfigChange> removes = new List<ConfigChange>();
         List<ConfigChange> adds = new List<ConfigChange>();
         List<ConfigChange> updates = new List<ConfigChange>();
+        List<ConfigChange> parentAttrUpdates = new List<ConfigChange>();
         for (ConfigChange c : changes) {
             if (c.action == 'REMOVE') removes.add(c);
             else if (c.action == 'ADD') adds.add(c);
             else if (c.action == 'UPDATE') updates.add(c);
+            else if (c.action == 'UPDATE_PARENT_ATTRIBUTES') parentAttrUpdates.add(c);
         }
 
         // Step 1: DELETE removed lines via DML (PlaceQuote may not support DELETE method)
@@ -2668,8 +2795,226 @@ public with sharing class MobileTleController {
             }
         }
 
+        // Step 3b: Handle UPDATE_PARENT_ATTRIBUTES — upsert parent-level attributes
+        List<QuoteLineItemAttribute> parentAttrsToUpsert = new List<QuoteLineItemAttribute>();
+        for (ConfigChange pac : parentAttrUpdates) {
+            if (pac.attributes == null || pac.attributes.isEmpty()) continue;
+            Id targetLineId = String.isNotBlank(pac.quoteLineItemId) ? Id.valueOf(pac.quoteLineItemId) : parentLineId;
+            for (AttributeChange ac : pac.attributes) {
+                QuoteLineItemAttribute qlia = new QuoteLineItemAttribute();
+                qlia.QuoteLineItemId = targetLineId;
+                qlia.AttributeDefinitionId = Id.valueOf(ac.attributeDefinitionId);
+                qlia.AttributeValue = ac.value;
+                if (String.isNotBlank(ac.picklistValueId)) {
+                    qlia.AttributePicklistValueId = Id.valueOf(ac.picklistValueId);
+                }
+                parentAttrsToUpsert.add(qlia);
+            }
+        }
+        if (!parentAttrsToUpsert.isEmpty()) {
+            try {
+                upsert parentAttrsToUpsert;
+            } catch (Exception e) {
+                System.debug(LoggingLevel.WARN, 'Parent attribute upsert error: ' + e.getMessage());
+            }
+        }
+
+        // Step 4: Check for price-impacting attribute changes and trigger reprice
+        Boolean hasPriceImpactingAttrs = false;
+        Set<Id> repriceLineIds = new Set<Id>();
+
+        // Check parent attribute changes
+        if (!parentAttrUpdates.isEmpty()) {
+            // Look up which attributes are price-impacting from catalog
+            Set<Id> parentAttrDefIds = new Set<Id>();
+            for (ConfigChange pac : parentAttrUpdates) {
+                if (pac.attributes != null) {
+                    for (AttributeChange ac : pac.attributes) {
+                        parentAttrDefIds.add(Id.valueOf(ac.attributeDefinitionId));
+                    }
+                }
+            }
+            if (!parentAttrDefIds.isEmpty()) {
+                try {
+                    for (SObject pad : Database.query(
+                        'SELECT AttributeDefinitionId FROM ProductAttributeDefinition ' +
+                        'WHERE AttributeDefinitionId IN :parentAttrDefIds AND IsPriceImpacting = true ' +
+                        'WITH SECURITY_ENFORCED'
+                    )) {
+                        hasPriceImpactingAttrs = true;
+                        repriceLineIds.add(parentLineId);
+                    }
+                } catch (Exception e) { /* non-fatal */ }
+            }
+        }
+
+        // Check child option attribute changes
+        for (ConfigChange c : changes) {
+            if (c.action != 'UPDATE' && c.action != 'ADD') continue;
+            if (c.attributes == null || c.attributes.isEmpty()) continue;
+            Set<Id> childAttrDefIds = new Set<Id>();
+            for (AttributeChange ac : c.attributes) {
+                childAttrDefIds.add(Id.valueOf(ac.attributeDefinitionId));
+            }
+            try {
+                for (SObject pad : Database.query(
+                    'SELECT AttributeDefinitionId FROM ProductAttributeDefinition ' +
+                    'WHERE AttributeDefinitionId IN :childAttrDefIds AND IsPriceImpacting = true ' +
+                    'WITH SECURITY_ENFORCED'
+                )) {
+                    hasPriceImpactingAttrs = true;
+                    if (String.isNotBlank(c.quoteLineItemId)) {
+                        repriceLineIds.add(Id.valueOf(c.quoteLineItemId));
+                    }
+                }
+            } catch (Exception e) { /* non-fatal */ }
+        }
+
+        // Trigger reprice on parent line if any price-impacting attributes changed
+        if (hasPriceImpactingAttrs) {
+            try {
+                repriceViaPlaceQuote(quoteId, parentLineId);
+            } catch (Exception e) {
+                System.debug(LoggingLevel.WARN, 'Reprice after attribute change failed: ' + e.getMessage());
+            }
+        }
+
         // Reload and return the updated state
         return loadBundleConfiguration(quoteId, parentLineId);
+    }
+
+    /**
+     * Save attribute values on a QuoteLineItem and trigger a reprice via PlaceQuote.
+     * Used for standalone parent-level attribute edits.
+     * @param quoteId          The Quote Id
+     * @param quoteLineItemId  The target QuoteLineItem
+     * @param attributeJson    JSON array of AttributeChange objects
+     * @return Map with updated price fields after reprice
+     */
+    @AuraEnabled
+    public static Map<String, Object> saveAttributesWithReprice(Id quoteId, Id quoteLineItemId, String attributeJson) {
+        if (quoteId == null || quoteLineItemId == null || String.isBlank(attributeJson)) {
+            throw new AuraHandledException('Quote Id, QuoteLineItem Id, and attribute JSON are required.');
+        }
+
+        List<AttributeChange> attrChanges = (List<AttributeChange>) JSON.deserialize(
+            attributeJson, List<AttributeChange>.class
+        );
+
+        if (attrChanges.isEmpty()) {
+            throw new AuraHandledException('No attribute changes provided.');
+        }
+
+        // 1. Build QuoteLineItemAttribute records
+        List<QuoteLineItemAttribute> attrsToUpsert = new List<QuoteLineItemAttribute>();
+        for (AttributeChange ac : attrChanges) {
+            QuoteLineItemAttribute qlia = new QuoteLineItemAttribute();
+            qlia.QuoteLineItemId = quoteLineItemId;
+            qlia.AttributeDefinitionId = Id.valueOf(ac.attributeDefinitionId);
+            qlia.AttributeValue = ac.value;
+            if (String.isNotBlank(ac.picklistValueId)) {
+                qlia.AttributePicklistValueId = Id.valueOf(ac.picklistValueId);
+            }
+            attrsToUpsert.add(qlia);
+        }
+
+        // 2. Upsert attributes
+        try {
+            Database.upsert(attrsToUpsert, false);
+        } catch (Exception e) {
+            throw new AuraHandledException('Attribute save failed: ' + e.getMessage());
+        }
+
+        // 3. Reprice via PlaceQuote PATCH
+        repriceViaPlaceQuote(quoteId, quoteLineItemId);
+
+        // 4. Re-query QLI for updated prices
+        Map<String, Object> result = new Map<String, Object>();
+        try {
+            QuoteLineItem updatedQli = [
+                SELECT Id, UnitPrice, TotalPrice
+                FROM QuoteLineItem
+                WHERE Id = :quoteLineItemId
+                WITH SECURITY_ENFORCED
+                LIMIT 1
+            ];
+            result.put('quoteLineItemId', updatedQli.Id);
+            result.put('unitPrice', updatedQli.UnitPrice);
+            result.put('totalPrice', updatedQli.TotalPrice);
+            // NetUnitPrice and NetTotalPrice may exist depending on org
+            try {
+                SObject qliSo = Database.query(
+                    'SELECT NetUnitPrice, NetTotalPrice FROM QuoteLineItem ' +
+                    'WHERE Id = :quoteLineItemId WITH SECURITY_ENFORCED LIMIT 1'
+                );
+                result.put('netUnitPrice', qliSo.get('NetUnitPrice'));
+                result.put('netTotalPrice', qliSo.get('NetTotalPrice'));
+            } catch (Exception ex) {
+                // Fields may not exist — non-fatal
+            }
+        } catch (Exception e) {
+            // Non-fatal — return what we have
+        }
+
+        return result;
+    }
+
+    /**
+     * Force a reprice on a QuoteLineItem via PlaceQuote PATCH.
+     * Uses Force pricing preference and Skip configuration.
+     */
+    private static void repriceViaPlaceQuote(Id quoteId, Id quoteLineItemId) {
+        // 1. Quote reference — PATCH existing quote
+        PlaceQuote.RecordResource quoteRecord =
+            new PlaceQuote.RecordResource(Quote.getSobjectType(), 'PATCH', quoteId);
+        PlaceQuote.RecordWithReferenceRequest quoteRef =
+            new PlaceQuote.RecordWithReferenceRequest('refQuote', quoteRecord);
+
+        // 2. QuoteLineItem — PATCH existing line (no field changes, just trigger reprice)
+        PlaceQuote.RecordResource qliRecord = new PlaceQuote.RecordResource(
+            QuoteLineItem.getSobjectType(), 'PATCH', quoteLineItemId
+        );
+        // No field values needed — the PATCH with Force pricing triggers reprice
+        qliRecord.fieldValues = new Map<String, Object>();
+        PlaceQuote.RecordWithReferenceRequest qliRef =
+            new PlaceQuote.RecordWithReferenceRequest('refQLI', qliRecord);
+
+        // 3. Build graph
+        List<PlaceQuote.RecordWithReferenceRequest> records =
+            new List<PlaceQuote.RecordWithReferenceRequest>();
+        records.add(quoteRef);
+        records.add(qliRef);
+
+        PlaceQuote.GraphRequest graph = new PlaceQuote.GraphRequest('repriceAttr', records);
+
+        // 4. Configuration options — skip configuration, force reprice
+        PlaceQuote.ConfigurationOptionsInput cInput = new PlaceQuote.ConfigurationOptionsInput();
+        cInput.addDefaultConfiguration = false;
+        cInput.executeConfigurationRules = false;
+        cInput.validateAmendRenewCancel = false;
+        cInput.validateProductCatalog = false;
+
+        // 5. Execute with Force pricing to trigger reprice
+        PlaceQuote.PlaceQuoteResponse resp =
+            PlaceQuote.PlaceQuoteRLMApexProcessor.execute(
+                PlaceQuote.PricingPreferenceEnum.Force,
+                graph,
+                PlaceQuote.ConfigurationInputEnum.Skip,
+                cInput
+            );
+
+        // 6. Check response — non-fatal, log but don't throw
+        if (resp == null || resp.success != true) {
+            String errDetail = '';
+            if (resp != null && resp.responseError != null) {
+                List<String> msgs = new List<String>();
+                for (ConnectApi.PlaceQuoteErrorResponse er : resp.responseError) {
+                    msgs.add(er.message);
+                }
+                errDetail = String.join(msgs, '; ');
+            }
+            System.debug(LoggingLevel.WARN, 'repriceViaPlaceQuote failed: ' + errDetail);
+        }
     }
 
     /**
