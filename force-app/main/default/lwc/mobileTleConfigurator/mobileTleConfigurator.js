@@ -3,8 +3,6 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { reduceError, formatCurrency } from 'c/mobileTleUtils';
 import loadBundleConfiguration from '@salesforce/apex/MobileTleController.loadBundleConfiguration';
 import saveBundleConfiguration from '@salesforce/apex/MobileTleController.saveBundleConfiguration';
-import saveAttributesWithReprice from '@salesforce/apex/MobileTleController.saveAttributesWithReprice';
-
 // Custom Labels
 import LBL_CONFIGURE_PRODUCT from '@salesforce/label/c.MTLE_ConfigureProduct';
 import LBL_CLOSE_CONFIGURATOR from '@salesforce/label/c.MTLE_CloseConfigurator';
@@ -209,15 +207,18 @@ export default class MobileTleConfigurator extends LightningElement {
         }
 
         this.saving = true;
-        if (this.hasPriceImpactingChanges) {
+        const needsReprice = this.hasPriceImpactingChanges;
+        if (needsReprice) {
             this.repricing = true;
         }
         try {
+            // Single call: saveBundleConfiguration handles QLI changes + QLIA + pricing
             const updatedState = await saveBundleConfiguration({
                 quoteId: this.quoteId,
                 parentLineId: this.lineId,
                 configJson: JSON.stringify(changes)
             });
+
             // Update working state with returned prices
             if (updatedState) {
                 this.configState = updatedState;
@@ -226,7 +227,7 @@ export default class MobileTleConfigurator extends LightningElement {
                 this._snapshotOriginal(this.workingGroups);
                 this.hasPriceImpactingChanges = false;
             }
-            if (this.repricing) {
+            if (needsReprice) {
                 this.toast(LBL_SUCCESS, 'Prices updated', 'success');
             } else {
                 this.toast(LBL_SUCCESS, LBL_CFG_SAVED, 'success');
@@ -324,7 +325,8 @@ export default class MobileTleConfigurator extends LightningElement {
                     parentAttrChanges.push({
                         attributeDefinitionId: wa.attributeDefinitionId,
                         value: curVal,
-                        picklistValueId: wa._picklistValueId || null
+                        picklistValueId: wa._picklistValueId || null,
+                        quoteLineItemAttributeId: wa.quoteLineItemAttributeId || null
                     });
                 }
             });
@@ -356,7 +358,8 @@ export default class MobileTleConfigurator extends LightningElement {
                     changed.push({
                         attributeDefinitionId: attr.attributeDefinitionId,
                         value: curVal,
-                        picklistValueId: attr._picklistValueId || null
+                        picklistValueId: attr._picklistValueId || null,
+                        quoteLineItemAttributeId: attr.quoteLineItemAttributeId || null
                     });
                 }
             }
@@ -369,7 +372,8 @@ export default class MobileTleConfigurator extends LightningElement {
             .map((a) => ({
                 attributeDefinitionId: a.attributeDefinitionId,
                 value: a.currentValue,
-                picklistValueId: a._picklistValueId || null
+                picklistValueId: a._picklistValueId || null,
+                quoteLineItemAttributeId: a.quoteLineItemAttributeId || null
             }));
         return attrs.length > 0 ? attrs : null;
     }

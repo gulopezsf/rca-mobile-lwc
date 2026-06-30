@@ -215,6 +215,7 @@ public with sharing class MobileTleController {
         @AuraEnabled public String attributeDefinitionId { get; set; }
         @AuraEnabled public String value { get; set; }
         @AuraEnabled public String picklistValueId { get; set; }
+        @AuraEnabled public String quoteLineItemAttributeId { get; set; }
     }
 
     // ─── Subscription Term DTO ────────────────────────────────────────────────
@@ -246,7 +247,7 @@ public with sharing class MobileTleController {
             fields.add('Opportunity.Account.CurrencyIsoCode');
         }
         String soql = 'SELECT ' + String.join(fields, ',') +
-            ' FROM Quote WHERE Id = :quoteId WITH SECURITY_ENFORCED LIMIT 1';
+            ' FROM Quote WHERE Id = :quoteId WITH USER_MODE LIMIT 1';
         List<Quote> rows = (List<Quote>) Database.query(soql);
         if (rows.isEmpty()) {
             throw new AuraHandledException('Quote not found.');
@@ -391,6 +392,17 @@ public with sharing class MobileTleController {
             // non-fatal — fall back to QLI-only detection
         }
 
+        // Non-bundle products with attribute definitions should also be configurable
+        Set<Id> productsWithAttributes = new Set<Id>();
+        try {
+            for (AggregateResult ar : [
+                SELECT Product2Id pid FROM ProductAttributeDefinition
+                WHERE Product2Id IN :productIds GROUP BY Product2Id
+            ]) {
+                productsWithAttributes.add((Id) ar.get('pid'));
+            }
+        } catch (Exception e) { }
+
         // Config flow resolution
         Map<Id, String> configFlowMap = resolveConfigFlowsByProduct(productIds);
         String defaultFlowApi = resolveDefaultConfigFlowApiName();
@@ -431,7 +443,8 @@ public with sharing class MobileTleController {
             }
             // For catalog bundles without any flow assignment, still mark as configurable
             // so the built-in configurator (mobileTleConfigurator) can handle them.
-            lr.isConfigurable = String.isNotBlank(flowApi) || lr.isBundleParent;
+            lr.isConfigurable = String.isNotBlank(flowApi) || lr.isBundleParent
+                || (qli.Product2Id != null && productsWithAttributes.contains(qli.Product2Id));
             lr.configFlowApiName = flowApi;
 
             // Field values for extra FieldSet fields
@@ -482,7 +495,7 @@ public with sharing class MobileTleController {
             throw new AuraHandledException('Quote Line Item Id is required.');
         }
         QuoteLineItem qli = [
-            SELECT Id FROM QuoteLineItem WHERE Id = :quoteLineItemId WITH SECURITY_ENFORCED LIMIT 1
+            SELECT Id FROM QuoteLineItem WHERE Id = :quoteLineItemId WITH USER_MODE LIMIT 1
         ];
         if (!QuoteLineItem.SObjectType.getDescribe().isDeletable()) {
             throw new AuraHandledException('Insufficient access to delete.');
@@ -533,7 +546,7 @@ public with sharing class MobileTleController {
         // Look up the QuoteId for the line item
         QuoteLineItem existingQli = [
             SELECT QuoteId FROM QuoteLineItem
-            WHERE Id = :quoteLineItemId WITH SECURITY_ENFORCED LIMIT 1
+            WHERE Id = :quoteLineItemId WITH USER_MODE LIMIT 1
         ];
 
         // 1. Quote reference — PATCH existing quote
@@ -622,7 +635,7 @@ public with sharing class MobileTleController {
     private static List<CatalogOption> getCatalogsDirect() {
         List<CatalogOption> out = new List<CatalogOption>();
         for (ProductCatalog pc : [
-            SELECT Id, Name FROM ProductCatalog WITH SECURITY_ENFORCED ORDER BY Name LIMIT 500
+            SELECT Id, Name FROM ProductCatalog WITH USER_MODE ORDER BY Name LIMIT 500
         ]) {
             CatalogOption o = new CatalogOption();
             o.id = pc.Id;
@@ -681,7 +694,7 @@ public with sharing class MobileTleController {
         List<CategoryOption> out = new List<CategoryOption>();
         for (ProductCategory cat : [
             SELECT Id, Name FROM ProductCategory WHERE CatalogId = :catalogId
-            WITH SECURITY_ENFORCED ORDER BY Name LIMIT 2000
+            WITH USER_MODE ORDER BY Name LIMIT 2000
         ]) {
             CategoryOption o = new CategoryOption();
             o.id = cat.Id;
@@ -828,7 +841,7 @@ public with sharing class MobileTleController {
         if (pbeMap.containsKey('CurrencyIsoCode') && String.isNotBlank(quoteCurrency)) {
             soql += ' AND CurrencyIsoCode = :quoteCurrency';
         }
-        soql += ' WITH SECURITY_ENFORCED ORDER BY Product2.Name LIMIT :pageSize OFFSET :offset';
+        soql += ' WITH USER_MODE ORDER BY Product2.Name LIMIT :pageSize OFFSET :offset';
 
         List<PricebookEntry> entries = (List<PricebookEntry>) Database.query(soql);
 
@@ -930,7 +943,7 @@ public with sharing class MobileTleController {
         if (pbeMap.containsKey('CurrencyIsoCode') && String.isNotBlank(quoteCurrency)) {
             soql += ' AND CurrencyIsoCode = :quoteCurrency';
         }
-        soql += ' WITH SECURITY_ENFORCED ORDER BY Product2.Name LIMIT :rowLimit';
+        soql += ' WITH USER_MODE ORDER BY Product2.Name LIMIT :rowLimit';
 
         List<PricebookEntry> entries = (List<PricebookEntry>) Database.query(soql);
 
@@ -989,7 +1002,7 @@ public with sharing class MobileTleController {
                        ProductSellingModel.Name, ProductSellingModel.SellingModelType
                 FROM ProductSellingModelOption
                 WHERE Product2Id IN :productIds
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
                 ORDER BY ProductSellingModel.Name
             ]) {
                 if (!result.containsKey(psmo.Product2Id)) {
@@ -1015,7 +1028,7 @@ public with sharing class MobileTleController {
                        ProductSellingModel.Name, ProductSellingModel.SellingModelType
                 FROM ProductSellingModelOption
                 WHERE Product2Id = :product2Id
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
                 ORDER BY ProductSellingModel.Name
             ]) {
                 SellingModelOption opt = new SellingModelOption();
@@ -1086,7 +1099,7 @@ public with sharing class MobileTleController {
             fields.add('ProductSellingModelId');
         }
         String soql = 'SELECT ' + String.join(fields, ',') +
-            ' FROM PricebookEntry WHERE Id = :pricebookEntryId WITH SECURITY_ENFORCED LIMIT 1';
+            ' FROM PricebookEntry WHERE Id = :pricebookEntryId WITH USER_MODE LIMIT 1';
         List<PricebookEntry> rows = (List<PricebookEntry>) Database.query(soql);
         if (rows.isEmpty()) {
             throw new AuraHandledException('PricebookEntry not found.');
@@ -1253,7 +1266,7 @@ public with sharing class MobileTleController {
                    Discount, BillingFrequency, ParentQuoteLineItemId, Description
             FROM QuoteLineItem
             WHERE Id = :quoteLineItemId
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
             LIMIT 1
         ];
 
@@ -1263,7 +1276,7 @@ public with sharing class MobileTleController {
                    Discount, BillingFrequency, Description
             FROM QuoteLineItem
             WHERE ParentQuoteLineItemId = :source.Id AND QuoteId = :source.QuoteId
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
             ORDER BY LineNumber NULLS LAST, CreatedDate
         ];
 
@@ -1278,7 +1291,7 @@ public with sharing class MobileTleController {
         for (QuoteLineItem existing : [
             SELECT Id FROM QuoteLineItem
             WHERE QuoteId = :source.QuoteId
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
         ]) {
             existingLineIds.add(existing.Id);
         }
@@ -1298,7 +1311,7 @@ public with sharing class MobileTleController {
                 SELECT Id, Product2Id, ParentQuoteLineItemId
                 FROM QuoteLineItem
                 WHERE QuoteId = :source.QuoteId
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
             ];
             Map<Id, Id> oldToNewMap = buildOldToNewLineMap(
                 source, sourceChildren, existingLineIds, allLinesAfter
@@ -1398,7 +1411,7 @@ public with sharing class MobileTleController {
                        AttributeValue, AttributePicklistValueId
                 FROM QuoteLineItemAttribute
                 WHERE QuoteLineItemId IN :sourceLineIds
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
             ];
         } catch (Exception e) {
             // QuoteLineItemAttribute may not be accessible — skip silently
@@ -1559,7 +1572,7 @@ public with sharing class MobileTleController {
         for (Pricebook2 pb : [
             SELECT Id, Name FROM Pricebook2
             WHERE IsActive = true
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
             ORDER BY Name LIMIT 200
         ]) {
             PricebookOption o = new PricebookOption();
@@ -1600,7 +1613,7 @@ public with sharing class MobileTleController {
                        ChildProduct.Name, ChildProduct.ProductCode
                 FROM ProductRelatedComponent
                 WHERE ParentProductId IN :productIds
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
                 ORDER BY ChildProduct.Name
             ]) {
                 if (!bundleMap.containsKey(prc.ParentProductId)) {
@@ -1751,7 +1764,7 @@ public with sharing class MobileTleController {
             qf.add('Opportunity.Account.CurrencyIsoCode');
         }
         String soql = 'SELECT ' + String.join(qf, ',') +
-            ' FROM Quote WHERE Id = :quoteId WITH SECURITY_ENFORCED LIMIT 1';
+            ' FROM Quote WHERE Id = :quoteId WITH USER_MODE LIMIT 1';
         List<Quote> rows = (List<Quote>) Database.query(soql);
         if (rows.isEmpty()) {
             throw new AuraHandledException('Quote not found.');
@@ -1861,7 +1874,7 @@ public with sharing class MobileTleController {
             Id psmId = (Id) productSellingModelId;
             List<ProductSellingModel> psmRows = [
                 SELECT SellingModelType FROM ProductSellingModel
-                WHERE Id = :psmId WITH SECURITY_ENFORCED LIMIT 1
+                WHERE Id = :psmId WITH USER_MODE LIMIT 1
             ];
             if (psmRows.isEmpty() || psmRows[0].SellingModelType != 'TermDefined') {
                 return info;
@@ -1888,7 +1901,7 @@ public with sharing class MobileTleController {
             }
 
             String soql = 'SELECT ' + String.join(qf, ',') +
-                ' FROM Quote WHERE Id = :quoteId WITH SECURITY_ENFORCED LIMIT 1';
+                ' FROM Quote WHERE Id = :quoteId WITH USER_MODE LIMIT 1';
             List<Quote> rows = (List<Quote>) Database.query(soql);
             if (rows.isEmpty()) {
                 // Fallback to default term
@@ -2036,7 +2049,7 @@ public with sharing class MobileTleController {
                 FROM Product2DataTranslation
                 WHERE ParentId IN :productIds
                   AND Language = :userLang
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
             ]) {
                 ProductTranslation pt = new ProductTranslation();
                 pt.name = pdt.Name;
@@ -2130,15 +2143,16 @@ public with sharing class MobileTleController {
             // Query ProductAttributeDefinition — links Product to AttributeDefinition
             List<SObject> padRows = Database.query(
                 'SELECT Id, AttributeDefinitionId, AttributeDefinition.Name, ' +
-                'AttributeDefinition.DataType, DefaultValue, ' +
+                'AttributeDefinition.DataType, AttributeDefinition.PicklistId, DefaultValue, ' +
                 'IsRequired, IsPriceImpacting, Sequence ' +
                 'FROM ProductAttributeDefinition ' +
-                'WHERE ProductId = :product2Id ' +
-                'WITH SECURITY_ENFORCED ' +
+                'WHERE Product2Id = :product2Id ' +
+                'WITH USER_MODE ' +
                 'ORDER BY Sequence NULLS LAST, AttributeDefinition.Name'
             );
 
-            Set<Id> picklistAttrDefIds = new Set<Id>();
+            // Map: picklistId → attributeDefinitionId (for Picklist-type attributes)
+            Map<Id, Id> picklistToAttrDef = new Map<Id, Id>();
 
             for (SObject pad : padRows) {
                 ConfigAttribute ca = new ConfigAttribute();
@@ -2157,49 +2171,33 @@ public with sharing class MobileTleController {
                 result.put(Id.valueOf(ca.attributeDefinitionId), ca);
 
                 if (ca.dataType == 'Picklist') {
-                    picklistAttrDefIds.add(Id.valueOf(ca.attributeDefinitionId));
+                    Id picklistId = (Id) attrDef.get('PicklistId');
+                    if (picklistId != null) {
+                        picklistToAttrDef.put(picklistId, Id.valueOf(ca.attributeDefinitionId));
+                    }
                 }
             }
 
-            // Query picklist values for Picklist-type attributes
-            if (!picklistAttrDefIds.isEmpty()) {
-                // Get AttributePicklistDefinition IDs
-                Map<Id, Id> attrDefToPicklistDef = new Map<Id, Id>();
-                for (SObject apd : Database.query(
-                    'SELECT Id, AttributeDefinitionId ' +
-                    'FROM AttributePicklistDefinition ' +
-                    'WHERE AttributeDefinitionId IN :picklistAttrDefIds ' +
-                    'WITH SECURITY_ENFORCED'
+            // Query picklist values directly via PicklistId (no intermediate object needed)
+            if (!picklistToAttrDef.isEmpty()) {
+                Set<Id> picklistIds = picklistToAttrDef.keySet();
+
+                for (SObject apv : Database.query(
+                    'SELECT Id, PicklistId, DisplayValue, Value, Sequence ' +
+                    'FROM AttributePicklistValue ' +
+                    'WHERE PicklistId IN :picklistIds ' +
+                    'WITH USER_MODE ' +
+                    'ORDER BY Sequence NULLS LAST, DisplayValue'
                 )) {
-                    attrDefToPicklistDef.put((Id) apd.get('AttributeDefinitionId'), (Id) apd.get('Id'));
-                }
+                    Id pickId = (Id) apv.get('PicklistId');
+                    Id attrDefId = picklistToAttrDef.get(pickId);
 
-                if (!attrDefToPicklistDef.isEmpty()) {
-                    Set<Id> picklistDefIds = new Set<Id>(attrDefToPicklistDef.values());
-
-                    // Reverse map: picklistDefId → attrDefId
-                    Map<Id, Id> picklistDefToAttrDef = new Map<Id, Id>();
-                    for (Id attrDefId : attrDefToPicklistDef.keySet()) {
-                        picklistDefToAttrDef.put(attrDefToPicklistDef.get(attrDefId), attrDefId);
-                    }
-
-                    for (SObject apv : Database.query(
-                        'SELECT Id, AttributePicklistDefinitionId, Label, Value, Sequence ' +
-                        'FROM AttributePicklistValue ' +
-                        'WHERE AttributePicklistDefinitionId IN :picklistDefIds ' +
-                        'WITH SECURITY_ENFORCED ' +
-                        'ORDER BY Sequence NULLS LAST, Label'
-                    )) {
-                        Id pickDefId = (Id) apv.get('AttributePicklistDefinitionId');
-                        Id attrDefId = picklistDefToAttrDef.get(pickDefId);
-
-                        if (attrDefId != null && result.containsKey(attrDefId)) {
-                            AttributePicklistOption opt = new AttributePicklistOption();
-                            opt.value = (String) apv.get('Value');
-                            opt.label = (String) apv.get('Label');
-                            opt.picklistValueId = (String) apv.get('Id');
-                            result.get(attrDefId).picklistValues.add(opt);
-                        }
+                    if (attrDefId != null && result.containsKey(attrDefId)) {
+                        AttributePicklistOption opt = new AttributePicklistOption();
+                        opt.value = (String) apv.get('Value');
+                        opt.label = (String) apv.get('DisplayValue');
+                        opt.picklistValueId = (String) apv.get('Id');
+                        result.get(attrDefId).picklistValues.add(opt);
                     }
                 }
             }
@@ -2228,7 +2226,7 @@ public with sharing class MobileTleController {
             SELECT Id, Product2Id, Product2.Name, Quantity, UnitPrice
             FROM QuoteLineItem
             WHERE Id = :quoteLineItemId AND QuoteId = :quoteId
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
             LIMIT 1
         ];
 
@@ -2251,7 +2249,7 @@ public with sharing class MobileTleController {
                 SELECT Id, AttributeDefinitionId, AttributeValue, AttributePicklistValueId
                 FROM QuoteLineItemAttribute
                 WHERE QuoteLineItemId = :quoteLineItemId
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
             ]) {
                 if (parentAttrDefs.containsKey(qlia.AttributeDefinitionId)) {
                     ConfigAttribute ca = parentAttrDefs.get(qlia.AttributeDefinitionId);
@@ -2289,7 +2287,7 @@ public with sharing class MobileTleController {
             SELECT Id, Name, MinBundleComponents, MaxBundleComponents, Sequence
             FROM ProductComponentGroup
             WHERE ParentProductId = :parentProduct2Id
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
             ORDER BY Sequence NULLS LAST, Name
         ];
         if (pcgRows.isEmpty()) return new List<ConfigGroup>();
@@ -2307,7 +2305,7 @@ public with sharing class MobileTleController {
             FROM ProductRelatedComponent
             WHERE ParentProductId = :parentProduct2Id
               AND ProductComponentGroupId IN :groupIds
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
             ORDER BY Sequence NULLS LAST, ChildProduct.Name
         ];
 
@@ -2329,7 +2327,7 @@ public with sharing class MobileTleController {
                 FROM QuoteLineItem
                 WHERE ParentQuoteLineItemId = :parentQuoteLineItemId
                   AND QuoteId = :quoteId
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
             ]) {
                 existingChildByProduct.put(childQli.Product2Id, childQli);
                 childLineToProduct.put(childQli.Id, childQli.Product2Id);
@@ -2352,7 +2350,7 @@ public with sharing class MobileTleController {
                            AttributeValue, AttributePicklistValueId
                     FROM QuoteLineItemAttribute
                     WHERE QuoteLineItemId IN :childLineIds
-                    WITH SECURITY_ENFORCED
+                    WITH USER_MODE
                 ]) {
                     if (!attrsByLineId.containsKey(qlia.QuoteLineItemId)) {
                         attrsByLineId.put(qlia.QuoteLineItemId, new List<QuoteLineItemAttribute>());
@@ -2371,7 +2369,7 @@ public with sharing class MobileTleController {
                 SELECT ParentProductId
                 FROM ProductComponentGroup
                 WHERE ParentProductId IN :childProductIds
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
             ]) {
                 nestedBundleProductIds.add(nestedPcg.ParentProductId);
             }
@@ -2596,7 +2594,96 @@ public with sharing class MobileTleController {
             }
         }
 
-        if (!adds.isEmpty() || !updates.isEmpty()) {
+        // Collect QLIA records for existing child lines and parent attrs
+        // to merge into the same PlaceQuote graph as QLI changes (Step 2).
+        // ADD-action attrs are deferred to post-PlaceQuote DML since the child
+        // QLI doesn't exist yet.
+        Integer attrIdx = 0;
+        Boolean hasAttrChanges = false;
+        List<PlaceQuote.RecordWithReferenceRequest> qliaRecords =
+            new List<PlaceQuote.RecordWithReferenceRequest>();
+        List<ConfigChange> addAttrChanges = new List<ConfigChange>(); // deferred ADD attrs
+
+        // Existing child option attribute changes (UPDATE actions with attributes)
+        for (ConfigChange c : changes) {
+            if (c.attributes == null || c.attributes.isEmpty()) continue;
+            if (c.action == 'UPDATE_PARENT_ATTRIBUTES') continue; // handled below
+            if (c.action == 'ADD') {
+                // Defer — child QLI not yet created
+                addAttrChanges.add(c);
+                continue;
+            }
+            if (String.isBlank(c.quoteLineItemId)) continue;
+
+            Id targetLineId = Id.valueOf(c.quoteLineItemId);
+            for (AttributeChange ac : c.attributes) {
+                attrIdx++;
+                hasAttrChanges = true;
+                PlaceQuote.RecordResource qliaRecord;
+                String refId = 'refAttr_' + attrIdx;
+
+                if (String.isNotBlank(ac.quoteLineItemAttributeId)) {
+                    qliaRecord = new PlaceQuote.RecordResource(
+                        QuoteLineItemAttribute.getSobjectType(), 'PATCH',
+                        Id.valueOf(ac.quoteLineItemAttributeId)
+                    );
+                } else {
+                    qliaRecord = new PlaceQuote.RecordResource(
+                        QuoteLineItemAttribute.getSobjectType(), 'POST'
+                    );
+                }
+
+                Map<String, Object> qliaFields = new Map<String, Object>();
+                qliaFields.put('QuoteLineItemId', targetLineId);
+                qliaFields.put('AttributeDefinitionId', ac.attributeDefinitionId);
+                qliaFields.put('AttributeValue', ac.value);
+                if (String.isNotBlank(ac.picklistValueId)) {
+                    qliaFields.put('AttributePicklistValueId', ac.picklistValueId);
+                }
+                qliaRecord.fieldValues = qliaFields;
+
+                qliaRecords.add(new PlaceQuote.RecordWithReferenceRequest(refId, qliaRecord));
+            }
+        }
+
+        // Parent attribute changes (UPDATE_PARENT_ATTRIBUTES)
+        for (ConfigChange pac : parentAttrUpdates) {
+            if (pac.attributes == null || pac.attributes.isEmpty()) continue;
+            Id targetLineId = String.isNotBlank(pac.quoteLineItemId)
+                ? Id.valueOf(pac.quoteLineItemId) : parentLineId;
+
+            for (AttributeChange ac : pac.attributes) {
+                attrIdx++;
+                hasAttrChanges = true;
+                PlaceQuote.RecordResource qliaRecord;
+                String refId = 'refParentAttr_' + attrIdx;
+
+                if (String.isNotBlank(ac.quoteLineItemAttributeId)) {
+                    qliaRecord = new PlaceQuote.RecordResource(
+                        QuoteLineItemAttribute.getSobjectType(), 'PATCH',
+                        Id.valueOf(ac.quoteLineItemAttributeId)
+                    );
+                } else {
+                    qliaRecord = new PlaceQuote.RecordResource(
+                        QuoteLineItemAttribute.getSobjectType(), 'POST'
+                    );
+                }
+
+                Map<String, Object> qliaFields = new Map<String, Object>();
+                qliaFields.put('QuoteLineItemId', targetLineId);
+                qliaFields.put('AttributeDefinitionId', ac.attributeDefinitionId);
+                qliaFields.put('AttributeValue', ac.value);
+                if (String.isNotBlank(ac.picklistValueId)) {
+                    qliaFields.put('AttributePicklistValueId', ac.picklistValueId);
+                }
+                qliaRecord.fieldValues = qliaFields;
+
+                qliaRecords.add(new PlaceQuote.RecordWithReferenceRequest(refId, qliaRecord));
+            }
+        }
+
+        // Step 2: Single PlaceQuote call for QLI changes + QLIA records + pricing
+        if (!adds.isEmpty() || !updates.isEmpty() || hasAttrChanges) {
             List<PlaceQuote.RecordWithReferenceRequest> records =
                 new List<PlaceQuote.RecordWithReferenceRequest>();
 
@@ -2674,6 +2761,9 @@ public with sharing class MobileTleController {
                 ));
             }
 
+            // Merge QLIA records into the same graph
+            records.addAll(qliaRecords);
+
             PlaceQuote.ConfigurationOptionsInput cInput = new PlaceQuote.ConfigurationOptionsInput();
             cInput.addDefaultConfiguration = false;
             cInput.executeConfigurationRules = true;
@@ -2682,9 +2772,14 @@ public with sharing class MobileTleController {
 
             PlaceQuote.GraphRequest graph = new PlaceQuote.GraphRequest('configBundle', records);
 
+            // Use Force pricing when attribute changes exist so repricing happens in one call
+            PlaceQuote.PricingPreferenceEnum pricePref = hasAttrChanges
+                ? PlaceQuote.PricingPreferenceEnum.Force
+                : PlaceQuote.PricingPreferenceEnum.System;
+
             PlaceQuote.PlaceQuoteResponse resp =
                 PlaceQuote.PlaceQuoteRLMApexProcessor.execute(
-                    PlaceQuote.PricingPreferenceEnum.System,
+                    pricePref,
                     graph,
                     PlaceQuote.ConfigurationInputEnum.RunAndAllowErrors,
                     cInput
@@ -2748,16 +2843,15 @@ public with sharing class MobileTleController {
             }
         }
 
-        // Step 3: Handle QuoteLineItemAttribute changes via DML
-        // (for both new and updated lines)
-        List<QuoteLineItemAttribute> attrsToUpsert = new List<QuoteLineItemAttribute>();
-        for (ConfigChange c : changes) {
-            if (c.attributes == null || c.attributes.isEmpty()) continue;
-            if (String.isBlank(c.quoteLineItemId) && c.action != 'ADD') continue;
+        // Step 2c: Handle attributes for newly-ADDed child lines via insertImmediate
+        // (these couldn't be in the main graph because the child QLI didn't exist yet)
+        if (!addAttrChanges.isEmpty()) {
+            List<QuoteLineItemAttribute> addAttrsToInsert = new List<QuoteLineItemAttribute>();
+            for (ConfigChange c : addAttrChanges) {
+                if (c.attributes == null || c.attributes.isEmpty()) continue;
+                if (String.isBlank(c.childProduct2Id)) continue;
 
-            // For ADDs, we need to re-query to find the newly created QLI
-            Id targetLineId;
-            if (c.action == 'ADD' && String.isNotBlank(c.childProduct2Id)) {
+                Id targetLineId;
                 try {
                     List<QuoteLineItem> newLines = [
                         SELECT Id FROM QuoteLineItem
@@ -2766,116 +2860,28 @@ public with sharing class MobileTleController {
                           AND QuoteId = :quoteId
                         ORDER BY CreatedDate DESC LIMIT 1
                     ];
-                    if (!newLines.isEmpty()) {
-                        targetLineId = newLines[0].Id;
-                    }
+                    if (!newLines.isEmpty()) targetLineId = newLines[0].Id;
                 } catch (Exception e) { continue; }
-            } else {
-                targetLineId = Id.valueOf(c.quoteLineItemId);
-            }
-            if (targetLineId == null) continue;
+                if (targetLineId == null) continue;
 
-            for (AttributeChange ac : c.attributes) {
-                QuoteLineItemAttribute qlia = new QuoteLineItemAttribute();
-                qlia.QuoteLineItemId = targetLineId;
-                qlia.AttributeDefinitionId = Id.valueOf(ac.attributeDefinitionId);
-                qlia.AttributeValue = ac.value;
-                if (String.isNotBlank(ac.picklistValueId)) {
-                    qlia.AttributePicklistValueId = Id.valueOf(ac.picklistValueId);
-                }
-                attrsToUpsert.add(qlia);
-            }
-        }
-        if (!attrsToUpsert.isEmpty()) {
-            try {
-                upsert attrsToUpsert;
-            } catch (Exception e) {
-                // Non-fatal — log but don't fail the whole operation
-                System.debug(LoggingLevel.WARN, 'Attribute upsert error: ' + e.getMessage());
-            }
-        }
-
-        // Step 3b: Handle UPDATE_PARENT_ATTRIBUTES — upsert parent-level attributes
-        List<QuoteLineItemAttribute> parentAttrsToUpsert = new List<QuoteLineItemAttribute>();
-        for (ConfigChange pac : parentAttrUpdates) {
-            if (pac.attributes == null || pac.attributes.isEmpty()) continue;
-            Id targetLineId = String.isNotBlank(pac.quoteLineItemId) ? Id.valueOf(pac.quoteLineItemId) : parentLineId;
-            for (AttributeChange ac : pac.attributes) {
-                QuoteLineItemAttribute qlia = new QuoteLineItemAttribute();
-                qlia.QuoteLineItemId = targetLineId;
-                qlia.AttributeDefinitionId = Id.valueOf(ac.attributeDefinitionId);
-                qlia.AttributeValue = ac.value;
-                if (String.isNotBlank(ac.picklistValueId)) {
-                    qlia.AttributePicklistValueId = Id.valueOf(ac.picklistValueId);
-                }
-                parentAttrsToUpsert.add(qlia);
-            }
-        }
-        if (!parentAttrsToUpsert.isEmpty()) {
-            try {
-                upsert parentAttrsToUpsert;
-            } catch (Exception e) {
-                System.debug(LoggingLevel.WARN, 'Parent attribute upsert error: ' + e.getMessage());
-            }
-        }
-
-        // Step 4: Check for price-impacting attribute changes and trigger reprice
-        Boolean hasPriceImpactingAttrs = false;
-        Set<Id> repriceLineIds = new Set<Id>();
-
-        // Check parent attribute changes
-        if (!parentAttrUpdates.isEmpty()) {
-            // Look up which attributes are price-impacting from catalog
-            Set<Id> parentAttrDefIds = new Set<Id>();
-            for (ConfigChange pac : parentAttrUpdates) {
-                if (pac.attributes != null) {
-                    for (AttributeChange ac : pac.attributes) {
-                        parentAttrDefIds.add(Id.valueOf(ac.attributeDefinitionId));
+                for (AttributeChange ac : c.attributes) {
+                    QuoteLineItemAttribute qlia = new QuoteLineItemAttribute();
+                    qlia.QuoteLineItemId = targetLineId;
+                    qlia.AttributeDefinitionId = Id.valueOf(ac.attributeDefinitionId);
+                    qlia.AttributeValue = ac.value;
+                    if (String.isNotBlank(ac.picklistValueId)) {
+                        qlia.AttributePicklistValueId = Id.valueOf(ac.picklistValueId);
                     }
+                    addAttrsToInsert.add(qlia);
                 }
             }
-            if (!parentAttrDefIds.isEmpty()) {
+            if (!addAttrsToInsert.isEmpty()) {
                 try {
-                    for (SObject pad : Database.query(
-                        'SELECT AttributeDefinitionId FROM ProductAttributeDefinition ' +
-                        'WHERE AttributeDefinitionId IN :parentAttrDefIds AND IsPriceImpacting = true ' +
-                        'WITH SECURITY_ENFORCED'
-                    )) {
-                        hasPriceImpactingAttrs = true;
-                        repriceLineIds.add(parentLineId);
-                    }
-                } catch (Exception e) { /* non-fatal */ }
-            }
-        }
-
-        // Check child option attribute changes
-        for (ConfigChange c : changes) {
-            if (c.action != 'UPDATE' && c.action != 'ADD') continue;
-            if (c.attributes == null || c.attributes.isEmpty()) continue;
-            Set<Id> childAttrDefIds = new Set<Id>();
-            for (AttributeChange ac : c.attributes) {
-                childAttrDefIds.add(Id.valueOf(ac.attributeDefinitionId));
-            }
-            try {
-                for (SObject pad : Database.query(
-                    'SELECT AttributeDefinitionId FROM ProductAttributeDefinition ' +
-                    'WHERE AttributeDefinitionId IN :childAttrDefIds AND IsPriceImpacting = true ' +
-                    'WITH SECURITY_ENFORCED'
-                )) {
-                    hasPriceImpactingAttrs = true;
-                    if (String.isNotBlank(c.quoteLineItemId)) {
-                        repriceLineIds.add(Id.valueOf(c.quoteLineItemId));
-                    }
+                    Database.insertImmediate(addAttrsToInsert);
+                } catch (Exception e) {
+                    System.debug(LoggingLevel.WARN,
+                        'ADD attribute insertImmediate error: ' + e.getMessage());
                 }
-            } catch (Exception e) { /* non-fatal */ }
-        }
-
-        // Trigger reprice on parent line if any price-impacting attributes changed
-        if (hasPriceImpactingAttrs) {
-            try {
-                repriceViaPlaceQuote(quoteId, parentLineId);
-            } catch (Exception e) {
-                System.debug(LoggingLevel.WARN, 'Reprice after attribute change failed: ' + e.getMessage());
             }
         }
 
@@ -2905,28 +2911,75 @@ public with sharing class MobileTleController {
             throw new AuraHandledException('No attribute changes provided.');
         }
 
-        // 1. Build QuoteLineItemAttribute records
-        List<QuoteLineItemAttribute> attrsToUpsert = new List<QuoteLineItemAttribute>();
+        // 1. Build PlaceQuote graph with QLIA records
+        List<PlaceQuote.RecordWithReferenceRequest> records =
+            new List<PlaceQuote.RecordWithReferenceRequest>();
+
+        // Quote anchor
+        PlaceQuote.RecordResource sarQuoteRecord =
+            new PlaceQuote.RecordResource(Quote.getSobjectType(), 'PATCH', quoteId);
+        records.add(new PlaceQuote.RecordWithReferenceRequest('refQuote', sarQuoteRecord));
+
+        // QLI anchor
+        PlaceQuote.RecordResource sarQliRecord =
+            new PlaceQuote.RecordResource(QuoteLineItem.getSobjectType(), 'PATCH', quoteLineItemId);
+        sarQliRecord.fieldValues = new Map<String, Object>();
+        records.add(new PlaceQuote.RecordWithReferenceRequest('refQLI', sarQliRecord));
+
+        // QLIA records
+        Integer idx = 0;
         for (AttributeChange ac : attrChanges) {
-            QuoteLineItemAttribute qlia = new QuoteLineItemAttribute();
-            qlia.QuoteLineItemId = quoteLineItemId;
-            qlia.AttributeDefinitionId = Id.valueOf(ac.attributeDefinitionId);
-            qlia.AttributeValue = ac.value;
-            if (String.isNotBlank(ac.picklistValueId)) {
-                qlia.AttributePicklistValueId = Id.valueOf(ac.picklistValueId);
+            idx++;
+            PlaceQuote.RecordResource qliaRecord;
+            if (String.isNotBlank(ac.quoteLineItemAttributeId)) {
+                qliaRecord = new PlaceQuote.RecordResource(
+                    QuoteLineItemAttribute.getSobjectType(), 'PATCH',
+                    Id.valueOf(ac.quoteLineItemAttributeId)
+                );
+            } else {
+                qliaRecord = new PlaceQuote.RecordResource(
+                    QuoteLineItemAttribute.getSobjectType(), 'POST'
+                );
             }
-            attrsToUpsert.add(qlia);
+            Map<String, Object> fields = new Map<String, Object>();
+            fields.put('QuoteLineItemId', quoteLineItemId);
+            fields.put('AttributeDefinitionId', ac.attributeDefinitionId);
+            fields.put('AttributeValue', ac.value);
+            if (String.isNotBlank(ac.picklistValueId)) {
+                fields.put('AttributePicklistValueId', ac.picklistValueId);
+            }
+            qliaRecord.fieldValues = fields;
+            records.add(new PlaceQuote.RecordWithReferenceRequest('refAttr_' + idx, qliaRecord));
         }
 
-        // 2. Upsert attributes
-        try {
-            Database.upsert(attrsToUpsert, false);
-        } catch (Exception e) {
-            throw new AuraHandledException('Attribute save failed: ' + e.getMessage());
-        }
+        // 2. Execute PlaceQuote with Force pricing
+        PlaceQuote.GraphRequest graph = new PlaceQuote.GraphRequest('attrReprice', records);
 
-        // 3. Reprice via PlaceQuote PATCH
-        repriceViaPlaceQuote(quoteId, quoteLineItemId);
+        PlaceQuote.ConfigurationOptionsInput cInput = new PlaceQuote.ConfigurationOptionsInput();
+        cInput.addDefaultConfiguration = false;
+        cInput.executeConfigurationRules = false;
+        cInput.validateAmendRenewCancel = false;
+        cInput.validateProductCatalog = false;
+
+        PlaceQuote.PlaceQuoteResponse resp =
+            PlaceQuote.PlaceQuoteRLMApexProcessor.execute(
+                PlaceQuote.PricingPreferenceEnum.Force,
+                graph,
+                PlaceQuote.ConfigurationInputEnum.Skip,
+                cInput
+            );
+
+        if (resp == null || resp.success != true) {
+            String errDetail = '';
+            if (resp != null && resp.responseError != null) {
+                List<String> msgs = new List<String>();
+                for (ConnectApi.PlaceQuoteErrorResponse er : resp.responseError) {
+                    msgs.add(er.message);
+                }
+                errDetail = String.join(msgs, '; ');
+            }
+            throw new AuraHandledException('Attribute save failed: ' + errDetail);
+        }
 
         // 4. Re-query QLI for updated prices
         Map<String, Object> result = new Map<String, Object>();
@@ -2935,7 +2988,7 @@ public with sharing class MobileTleController {
                 SELECT Id, UnitPrice, TotalPrice
                 FROM QuoteLineItem
                 WHERE Id = :quoteLineItemId
-                WITH SECURITY_ENFORCED
+                WITH USER_MODE
                 LIMIT 1
             ];
             result.put('quoteLineItemId', updatedQli.Id);
@@ -2945,7 +2998,7 @@ public with sharing class MobileTleController {
             try {
                 SObject qliSo = Database.query(
                     'SELECT NetUnitPrice, NetTotalPrice FROM QuoteLineItem ' +
-                    'WHERE Id = :quoteLineItemId WITH SECURITY_ENFORCED LIMIT 1'
+                    'WHERE Id = :quoteLineItemId WITH USER_MODE LIMIT 1'
                 );
                 result.put('netUnitPrice', qliSo.get('NetUnitPrice'));
                 result.put('netTotalPrice', qliSo.get('NetTotalPrice'));
@@ -2957,6 +3010,25 @@ public with sharing class MobileTleController {
         }
 
         return result;
+    }
+
+    /**
+     * Reprice a quote line in a separate transaction (avoids SOQL 101 limit).
+     * Called by LWC after saveBundleConfiguration() when price-impacting attributes changed.
+     * @param quoteId          The Quote Id
+     * @param quoteLineItemId  The parent QuoteLineItem to reprice
+     * @return Updated BundleConfigState with refreshed prices
+     */
+    @AuraEnabled
+    public static BundleConfigState repriceQuoteLine(Id quoteId, Id quoteLineItemId) {
+        if (quoteId == null || quoteLineItemId == null) {
+            throw new AuraHandledException('Quote Id and QuoteLineItem Id are required.');
+        }
+
+        repriceViaPlaceQuote(quoteId, quoteLineItemId);
+
+        // Reload and return updated state with new prices
+        return loadBundleConfiguration(quoteId, quoteLineItemId);
     }
 
     /**
@@ -3032,7 +3104,7 @@ public with sharing class MobileTleController {
             List<String> qFields = new List<String>{ 'Id', 'Pricebook2Id' };
             if (isMulti) qFields.add('CurrencyIsoCode');
             String qSoql = 'SELECT ' + String.join(qFields, ',') +
-                ' FROM Quote WHERE Id = :quoteId WITH SECURITY_ENFORCED LIMIT 1';
+                ' FROM Quote WHERE Id = :quoteId WITH USER_MODE LIMIT 1';
             List<Quote> qRows = (List<Quote>) Database.query(qSoql);
             if (qRows.isEmpty()) return result;
             Quote q = qRows[0];
@@ -3048,7 +3120,7 @@ public with sharing class MobileTleController {
             if (isMulti && String.isNotBlank(quoteCurrency)) {
                 pbeSoql += ' AND CurrencyIsoCode = :quoteCurrency';
             }
-            pbeSoql += ' WITH SECURITY_ENFORCED';
+            pbeSoql += ' WITH USER_MODE';
 
             for (PricebookEntry pbe : (List<PricebookEntry>) Database.query(pbeSoql)) {
                 result.put(pbe.Product2Id, pbe);

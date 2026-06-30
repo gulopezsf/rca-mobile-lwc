@@ -143,12 +143,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        padding-top: 3rem;
     }
 
     .mtle-config-container {
         width: 90%;
         max-width: 56rem;     /* ~900px */
-        max-height: 85vh;
+        max-height: 80vh;
         border-radius: 0.75rem;
         background: var(--slds-g-color-neutral-base-100, #fff);
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
