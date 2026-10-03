@@ -369,6 +369,13 @@ export default class MobileTleProductBrowser extends LightningElement {
         }));
     }
 
+    handleProductAddedConfigure(event) {
+        // Relay configure event from product card
+        this.dispatchEvent(new CustomEvent('productaddedconfigure', {
+            detail: event.detail
+        }));
+    }
+
     handleProductAddError(event) {
         this.dispatchEvent(new CustomEvent('productadderror', {
             detail: event.detail

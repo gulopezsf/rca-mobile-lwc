@@ -1,18 +1,18 @@
 /**
  * Apex controller for the mobileTransactionLineEditor LWC.
  *
- * Uses the standard RCA PlaceQuote Apex API as the sole mechanism for
+ * Uses the standard RCA RevSalesTrxn Apex API as the sole mechanism for
  * adding products to quotes (both standalone and bundles).
  *
  * Key patterns:
- *   - PlaceQuote-only add strategy (no Flow or DML fallback)
+ *   - RevSalesTrxn-only add strategy (no Flow or DML fallback)
  *   - addDefaultConfiguration=true for automatic bundle child creation
- *   - ProductSellingModel passed in the PlaceQuote graph
+ *   - ProductSellingModel passed in the RevSalesTrxn graph
  *   - Product images via Product2.DisplayUrl
  *   - Per-product selling model options (ProductSellingModelOption)
  *   - Pagination via pageToken / OFFSET
  *   - Dynamic default catalog from Product Discovery Settings
- *   - Clone line via PlaceQuote API
+ *   - Clone line via RevSalesTrxn API
  *   - Single-field inline edit
  */
 public with sharing class MobileTleController {
@@ -223,13 +223,16 @@ public with sharing class MobileTleController {
     /**
      * Holds subscription term information derived from the Quote and
      * the selling model type. Used to pass StartDate/EndDate/SubscriptionTerm
-     * to PlaceQuote for TermDefined products.
+     * to RevSalesTrxn for TermDefined products.
      */
     private class SubscriptionTermInfo {
         Boolean isTermDefined = false;
         Date startDate;
         Date endDate;
         Integer subscriptionTerm;
+        String subscriptionTermUnit; // Annual, Monthly, etc.
+        String periodBoundary;    // AlignToCalendar, Anniversary, DayOfPeriod, LastDayOfPeriod
+        Id prorationPolicyId;     // Reference to ProrationPolicy record
     }
 
     // ─── Quote Context ───────────────────────────────────────────────────────
@@ -524,7 +527,7 @@ public with sharing class MobileTleController {
             throw new AuraHandledException('Field not editable: ' + fieldName);
         }
 
-        // Pricing-sensitive fields must go through PlaceQuote so the RCA engine
+        // Pricing-sensitive fields must go through RevSalesTrxn so the RCA engine
         // recalculates NetUnitPrice, NetTotalPrice, TotalPrice, and Quote totals.
         Set<String> pricingSensitiveFields = new Set<String>{ 'Quantity', 'Discount', 'UnitPrice' };
         if (pricingSensitiveFields.contains(fieldName) && !USE_SOQL_FALLBACK) {
@@ -538,7 +541,7 @@ public with sharing class MobileTleController {
     }
 
     /**
-     * Uses PlaceQuote PATCH to update a single field on a QuoteLineItem,
+     * Uses RevSalesTrxn PATCH to update a single field on a QuoteLineItem,
      * which triggers the RCA pricing engine to recalculate all derived
      * pricing fields (NetUnitPrice, NetTotalPrice, TotalPrice, Quote totals).
      */
@@ -550,54 +553,51 @@ public with sharing class MobileTleController {
         ];
 
         // 1. Quote reference — PATCH existing quote
-        PlaceQuote.RecordResource quoteRecord =
-            new PlaceQuote.RecordResource(Quote.getSobjectType(), 'PATCH', existingQli.QuoteId);
-        PlaceQuote.RecordWithReferenceRequest quoteRef =
-            new PlaceQuote.RecordWithReferenceRequest('refQuote', quoteRecord);
+        RevSalesTrxn.RecordResource quoteRecord =
+            new RevSalesTrxn.RecordResource(Quote.getSobjectType(), 'PATCH', existingQli.QuoteId);
+        RevSalesTrxn.RecordWithReferenceRequest quoteRef =
+            new RevSalesTrxn.RecordWithReferenceRequest('refQuote', quoteRecord);
 
         // 2. QuoteLineItem — PATCH existing line with the changed field
-        PlaceQuote.RecordResource qliRecord = new PlaceQuote.RecordResource(
+        RevSalesTrxn.RecordResource qliRecord = new RevSalesTrxn.RecordResource(
             QuoteLineItem.getSobjectType(), 'PATCH', quoteLineItemId
         );
         Map<String, Object> fields = new Map<String, Object>();
         fields.put(fieldName, value);
         qliRecord.fieldValues = fields;
-        PlaceQuote.RecordWithReferenceRequest qliRef =
-            new PlaceQuote.RecordWithReferenceRequest('refQLI', qliRecord);
+        RevSalesTrxn.RecordWithReferenceRequest qliRef =
+            new RevSalesTrxn.RecordWithReferenceRequest('refQLI', qliRecord);
 
         // 3. Build graph
-        List<PlaceQuote.RecordWithReferenceRequest> records =
-            new List<PlaceQuote.RecordWithReferenceRequest>();
+        List<RevSalesTrxn.RecordWithReferenceRequest> records =
+            new List<RevSalesTrxn.RecordWithReferenceRequest>();
         records.add(quoteRef);
         records.add(qliRef);
 
-        PlaceQuote.GraphRequest graph = new PlaceQuote.GraphRequest('inlineEdit', records);
+        RevSalesTrxn.GraphRequest graph = new RevSalesTrxn.GraphRequest('inlineEdit', records);
 
         // 4. Configuration options — no default configuration needed for inline edits
-        PlaceQuote.ConfigurationOptionsInput cInput = new PlaceQuote.ConfigurationOptionsInput();
+        RevSalesTrxn.ConfigurationOptionsInput cInput = new RevSalesTrxn.ConfigurationOptionsInput();
         cInput.addDefaultConfiguration = false;
         cInput.executeConfigurationRules = true;
         cInput.validateAmendRenewCancel = false;
         cInput.validateProductCatalog = false;
 
-        // 5. Execute PlaceQuote with System pricing to trigger reprice
-        PlaceQuote.PlaceQuoteResponse resp =
-            PlaceQuote.PlaceQuoteRLMApexProcessor.execute(
-                PlaceQuote.PricingPreferenceEnum.System,
+        // 5. Execute RevSalesTrxn with System pricing to trigger reprice
+        RevSalesTrxn.PlaceSalesTransactionResponse resp =
+            RevSalesTrxn.PlaceSalesTransactionExecutor.execute(
                 graph,
-                PlaceQuote.ConfigurationInputEnum.RunAndAllowErrors,
-                cInput
+                RevSalesTrxn.PricingPreferenceEnum.SYSTEM,
+                RevSalesTrxn.ConfigurationExecutionEnum.SYSTEM,
+                cInput,
+                null
             );
 
         // 6. Check response
-        if (resp == null || resp.success != true) {
+        if (resp == null || resp.isSuccess != true) {
             String errDetail = '';
-            if (resp != null && resp.responseError != null) {
-                List<String> msgs = new List<String>();
-                for (ConnectApi.PlaceQuoteErrorResponse er : resp.responseError) {
-                    msgs.add(er.message);
-                }
-                errDetail = String.join(msgs, '; ');
+            if (resp != null && resp.errorResponse != null) {
+                errDetail = String.valueOf(resp.errorResponse);
             }
             throw new AuraHandledException(
                 'Inline edit failed' + (String.isNotBlank(errDetail) ? ': ' + errDetail : '.')
@@ -1043,11 +1043,11 @@ public with sharing class MobileTleController {
         return out;
     }
 
-    // ─── Add line via PlaceQuote standard RCA API ──────────────────────────
-    // Uses ONLY the PlaceQuote Apex API (standard RCA action).
-    // No Flow or DML fallback — PlaceQuote handles:
-    //   - Creating the QuoteLineItem with pricing (PricingPreferenceEnum.System)
-    //   - Executing configuration rules (ConfigurationInputEnum.RunAndAllowErrors)
+    // ─── Add line via RevSalesTrxn standard RCA API ─────────────────────────
+    // Uses ONLY the RevSalesTrxn Apex API (standard RCA action).
+    // No Flow or DML fallback — RevSalesTrxn handles:
+    //   - Creating the QuoteLineItem with pricing (PricingPreferenceEnum.SYSTEM)
+    //   - Executing configuration rules (ConfigurationExecutionEnum.SKIP)
     //   - Auto-adding default bundle children (addDefaultConfiguration = true)
     //   - Respecting ProductSellingModel for the line
 
@@ -1082,13 +1082,13 @@ public with sharing class MobileTleController {
         // "Specify either the end date or add the Subscription Term..."
         SubscriptionTermInfo termInfo = resolveSubscriptionTermInfo(quoteId, productSellingModelId);
 
-        // Test context uses DML fallback (PlaceQuote not available in unit tests)
+        // Test context uses DML fallback (RevSalesTrxn not available in unit tests)
         if (USE_SOQL_FALLBACK) {
             return addLineDirect(quoteId, effectiveProduct2Id, pricebookEntryId,
                 effectiveUnitPrice, quantity, billingFrequency);
         }
 
-        // Standard RCA PlaceQuote API — single path, no fallbacks
+        // Standard RCA RevSalesTrxn API — single path, no fallbacks
         return addLineViaPlaceQuote(quoteId, effectiveProduct2Id, pricebookEntryId,
             effectiveUnitPrice, quantity, billingFrequency, productSellingModelId, termInfo);
     }
@@ -1113,14 +1113,14 @@ public with sharing class MobileTleController {
         String productSellingModelId, SubscriptionTermInfo termInfo
     ) {
         // 1. Quote record — PATCH existing quote (valid methods: POST, PATCH)
-        PlaceQuote.RecordResource quoteRecord =
-            new PlaceQuote.RecordResource(Quote.getSobjectType(), 'PATCH', quoteId);
-        PlaceQuote.RecordWithReferenceRequest quoteRef =
-            new PlaceQuote.RecordWithReferenceRequest('refQuote', quoteRecord);
+        RevSalesTrxn.RecordResource quoteRecord =
+            new RevSalesTrxn.RecordResource(Quote.getSobjectType(), 'PATCH', quoteId);
+        RevSalesTrxn.RecordWithReferenceRequest quoteRef =
+            new RevSalesTrxn.RecordWithReferenceRequest('refQuote', quoteRecord);
 
         // 2. QuoteLineItem record — POST new line
-        PlaceQuote.RecordResource qliRecord =
-            new PlaceQuote.RecordResource(QuoteLineItem.getSobjectType(), 'POST');
+        RevSalesTrxn.RecordResource qliRecord =
+            new RevSalesTrxn.RecordResource(QuoteLineItem.getSobjectType(), 'POST');
         Map<String, Object> qliFields = new Map<String, Object>();
         qliFields.put('QuoteId', '@{refQuote.id}');
         qliFields.put('PricebookEntryId', pricebookEntryId);
@@ -1128,12 +1128,16 @@ public with sharing class MobileTleController {
             qliFields.put('Product2Id', product2Id);
         }
         qliFields.put('Quantity', quantity);
-        qliFields.put('UnitPrice', unitPrice);
+        // UnitPrice: only include when non-zero. Bundle parents (UnitPrice=0)
+        // need RCA to derive pricing for auto-created children.
+        if (unitPrice != null && unitPrice != 0) {
+            qliFields.put('UnitPrice', unitPrice);
+        }
         if (String.isNotBlank(billingFrequency)) {
             qliFields.put('BillingFrequency', billingFrequency);
         }
         // ProductSellingModelId — only include when the running user has FLS write
-        // access.  PlaceQuote respects field-level security, so passing a field the
+        // access.  RevSalesTrxn respects field-level security, so passing a field the
         // profile cannot write causes "Unable to create/update fields" errors.
         // When omitted, RCA resolves the selling model automatically via
         // addDefaultConfiguration = true.
@@ -1144,15 +1148,15 @@ public with sharing class MobileTleController {
                 qliFields.put('ProductSellingModelId', productSellingModelId);
             }
         }
-        // Subscription term fields for TermDefined selling models.
-        // Without these, the pricing procedure throws:
-        // "Specify either the end date or add the Subscription Term..."
+        // ── Subscription term fields — ONLY for TermDefined ────────────
+        // In v2.1, OneTime and Evergreen products worked WITHOUT any term
+        // fields.  Sending term fields for OneTime triggers the pricing
+        // procedure which then fails on SubscriptionTermUnit (system-managed,
+        // not writable).  Only include term fields for TermDefined models.
         if (termInfo != null && termInfo.isTermDefined) {
             Map<String, Schema.SObjectField> qliFieldMap =
                 Schema.SObjectType.QuoteLineItem.fields.getMap();
             if (termInfo.startDate != null && termInfo.endDate != null) {
-                // Prefer StartDate + EndDate (lets RCA derive SubscriptionTerm).
-                // Dates must be ISO-8601 strings (YYYY-MM-DD) for PlaceQuote serialization.
                 String startDateStr = String.valueOf(termInfo.startDate).left(10);
                 String endDateStr = String.valueOf(termInfo.endDate).left(10);
                 if (qliFieldMap.containsKey('StartDate') &&
@@ -1170,62 +1174,93 @@ public with sharing class MobileTleController {
                     qliFields.put('SubscriptionTerm', termInfo.subscriptionTerm);
                 }
             }
+            // PeriodBoundary — required by recent RCA releases for TermDefined
+            if (termInfo.periodBoundary != null) {
+                if (qliFieldMap.containsKey('PeriodBoundary') &&
+                    qliFieldMap.get('PeriodBoundary').getDescribe().isCreateable()) {
+                    qliFields.put('PeriodBoundary', termInfo.periodBoundary);
+                }
+            }
+            // ProrationPolicyId
+            if (termInfo.prorationPolicyId != null) {
+                if (qliFieldMap.containsKey('ProrationPolicyId') &&
+                    qliFieldMap.get('ProrationPolicyId').getDescribe().isCreateable()) {
+                    qliFields.put('ProrationPolicyId', termInfo.prorationPolicyId);
+                }
+            }
         }
         qliRecord.fieldValues = qliFields;
 
-        PlaceQuote.RecordWithReferenceRequest qliRef =
-            new PlaceQuote.RecordWithReferenceRequest('refQLI', qliRecord);
+        RevSalesTrxn.RecordWithReferenceRequest qliRef =
+            new RevSalesTrxn.RecordWithReferenceRequest('refQLI', qliRecord);
 
         // 3. Build the graph with quote + line records
-        List<PlaceQuote.RecordWithReferenceRequest> records =
-            new List<PlaceQuote.RecordWithReferenceRequest>();
+        List<RevSalesTrxn.RecordWithReferenceRequest> records =
+            new List<RevSalesTrxn.RecordWithReferenceRequest>();
         records.add(quoteRef);
         records.add(qliRef);
 
-        PlaceQuote.GraphRequest graph = new PlaceQuote.GraphRequest('addLine', records);
+        RevSalesTrxn.GraphRequest graph = new RevSalesTrxn.GraphRequest('addLine', records);
 
         // 4. Configuration options — enable default configuration for bundles
         //    This auto-creates child lines with default quantities/attributes
-        PlaceQuote.ConfigurationOptionsInput cInput = new PlaceQuote.ConfigurationOptionsInput();
-        cInput.addDefaultConfiguration = true;
-        cInput.executeConfigurationRules = true;
-        cInput.validateAmendRenewCancel = false;
-        cInput.validateProductCatalog = true;
+        RevSalesTrxn.ConfigurationOptionsInput opts = new RevSalesTrxn.ConfigurationOptionsInput();
+        opts.addDefaultConfiguration = true;
+        opts.executeConfigurationRules = true;
+        opts.validateAmendRenewCancel = false;
+        opts.validateProductCatalog = true;
 
-        // 5. Pricing = System (let RCA calculate from pricebook/rate cards)
-        //    Configuration = RunAndAllowErrors (non-blocking rule violations)
-        PlaceQuote.PricingPreferenceEnum pricingPref =
-            PlaceQuote.PricingPreferenceEnum.System;
-        PlaceQuote.ConfigurationInputEnum configPref =
-            PlaceQuote.ConfigurationInputEnum.RunAndAllowErrors;
+        // 5. Pricing = SYSTEM (let RCA price from pricebook/rate cards; needed
+        //    for bundles where addDefaultConfiguration creates children that
+        //    need pricing).  Configuration = FORCE (process config rules and
+        //    auto-create bundle children from ProductRelatedComponent).
+        RevSalesTrxn.PricingPreferenceEnum pricingPref =
+            RevSalesTrxn.PricingPreferenceEnum.SYSTEM;
+        RevSalesTrxn.ConfigurationExecutionEnum configEnum =
+            RevSalesTrxn.ConfigurationExecutionEnum.FORCE;
 
-        // 6. Execute PlaceQuote
-        PlaceQuote.PlaceQuoteResponse resp =
-            PlaceQuote.PlaceQuoteRLMApexProcessor.execute(
-                pricingPref, graph, configPref, cInput
+        // 6. Execute RevSalesTrxn
+        RevSalesTrxn.PlaceSalesTransactionResponse resp;
+        try {
+            resp = RevSalesTrxn.PlaceSalesTransactionExecutor.execute(
+                graph, pricingPref, configEnum, opts, null
             );
+        } catch (Exception execEx) {
+            throw new AuraHandledException(
+                'RevSalesTrxn exception: ' + execEx.getMessage()
+            );
+        }
 
         // 7. Check response
-        if (resp == null || resp.success != true) {
+        if (resp == null || resp.isSuccess != true) {
             String errDetail = '';
-            if (resp != null && resp.responseError != null) {
+            if (resp != null && resp.errorResponse != null) {
                 List<String> msgs = new List<String>();
-                for (ConnectApi.PlaceQuoteErrorResponse er : resp.responseError) {
-                    msgs.add(er.message);
+                for (Object er : resp.errorResponse) {
+                    msgs.add(String.valueOf(er));
                 }
                 errDetail = String.join(msgs, '; ');
             }
             throw new AuraHandledException(
-                'PlaceQuote failed' + (String.isNotBlank(errDetail) ? ': ' + errDetail : '.')
+                'RevSalesTrxn failed' + (String.isNotBlank(errDetail) ? ': ' + errDetail : '.')
             );
         }
-        return resp.quoteId;
+        // RevSalesTrxn returns the Quote Id (salesTransactionId), not the QLI Id.
+        // Query for the newest QLI on this quote to return the actual line Id.
+        Id quoteIdResult = (Id) resp.salesTransactionId;
+        List<QuoteLineItem> newest = [
+            SELECT Id FROM QuoteLineItem
+            WHERE QuoteId = :quoteIdResult AND Product2Id = :product2Id
+            WITH USER_MODE
+            ORDER BY CreatedDate DESC LIMIT 1
+        ];
+        return newest.isEmpty() ? quoteIdResult : newest[0].Id;
     }
 
     // addLineViaRcaFlow — REMOVED
-    // Flow-based fallback has been removed. The standard PlaceQuote API is the
+    // Flow-based fallback has been removed. The standard RevSalesTrxn API is the
     // sole mechanism for adding products to quotes. This aligns with RCA best
-    // practices: PlaceQuote handles pricing, configuration rules, and default
+    // practices: RevSalesTrxn handles pricing, configuration rules, and default
     // bundle child creation in a single synchronous call.
 
     @TestVisible
@@ -1261,24 +1296,44 @@ public with sharing class MobileTleController {
             throw new AuraHandledException('Quote Line Item Id is required.');
         }
         // Query the source line
-        QuoteLineItem source = [
-            SELECT Id, QuoteId, Product2Id, PricebookEntryId, Quantity, UnitPrice,
-                   Discount, BillingFrequency, ParentQuoteLineItemId, Description
-            FROM QuoteLineItem
-            WHERE Id = :quoteLineItemId
-            WITH USER_MODE
-            LIMIT 1
-        ];
+        // Build dynamic field list for clone source query
+        List<String> cloneFields = new List<String>{
+            'Id', 'QuoteId', 'Product2Id', 'PricebookEntryId', 'Quantity', 'UnitPrice',
+            'Discount', 'BillingFrequency', 'ParentQuoteLineItemId', 'Description'
+        };
+        Map<String, Schema.SObjectField> qliFieldMap =
+            Schema.SObjectType.QuoteLineItem.fields.getMap();
+        for (String f : new List<String>{
+            'StartDate', 'EndDate', 'SubscriptionTerm', 'SubscriptionTermUnit',
+            'PeriodBoundary', 'ProrationPolicyId', 'ProductSellingModelId'
+        }) {
+            if (qliFieldMap.containsKey(f)) {
+                cloneFields.add(f);
+            }
+        }
+        String cloneSoql = 'SELECT ' + String.join(cloneFields, ', ') +
+            ' FROM QuoteLineItem WHERE Id = :quoteLineItemId WITH USER_MODE LIMIT 1';
+        QuoteLineItem source = (QuoteLineItem) Database.query(cloneSoql);
 
         // Query children of source (for bundle cloning)
-        List<QuoteLineItem> sourceChildren = [
-            SELECT Id, Product2Id, PricebookEntryId, Quantity, UnitPrice,
-                   Discount, BillingFrequency, Description
-            FROM QuoteLineItem
-            WHERE ParentQuoteLineItemId = :source.Id AND QuoteId = :source.QuoteId
-            WITH USER_MODE
-            ORDER BY LineNumber NULLS LAST, CreatedDate
-        ];
+        List<String> childFields = new List<String>{
+            'Id', 'QuoteId', 'Product2Id', 'PricebookEntryId', 'Quantity', 'UnitPrice',
+            'Discount', 'BillingFrequency', 'Description'
+        };
+        for (String f : new List<String>{
+            'StartDate', 'EndDate', 'SubscriptionTerm', 'SubscriptionTermUnit',
+            'PeriodBoundary', 'ProrationPolicyId', 'ProductSellingModelId'
+        }) {
+            if (qliFieldMap.containsKey(f)) {
+                childFields.add(f);
+            }
+        }
+        Id sourceId = source.Id;
+        Id sourceQuoteId = source.QuoteId;
+        String childSoql = 'SELECT ' + String.join(childFields, ', ') +
+            ' FROM QuoteLineItem WHERE ParentQuoteLineItemId = :sourceId AND QuoteId = :sourceQuoteId' +
+            ' WITH USER_MODE ORDER BY LineNumber NULLS LAST, CreatedDate';
+        List<QuoteLineItem> sourceChildren = (List<QuoteLineItem>) Database.query(childSoql);
 
         // Collect all original line IDs (parent + children) for attribute cloning
         Set<Id> originalLineIds = new Set<Id>{ source.Id };
@@ -1303,7 +1358,7 @@ public with sharing class MobileTleController {
             return newId;
         }
 
-        // Try PlaceQuote clone (handles bundles)
+        // Try RevSalesTrxn clone (handles bundles)
         try {
             Id quoteId = cloneViaPlaceQuote(source, sourceChildren);
             // Find newly created lines by comparing against pre-clone snapshot
@@ -1319,7 +1374,14 @@ public with sharing class MobileTleController {
             cloneAttributes(oldToNewMap);
             return quoteId;
         } catch (Exception e) {
-            // Fallback to direct DML
+            if (!sourceChildren.isEmpty()) {
+                // Bundle lines MUST use RevSalesTrxn — DML cannot clone children
+                String cloneDebug = e.getTypeName() + ': ' + e.getMessage() + ' at line ' + e.getLineNumber();
+                AuraHandledException ahe = new AuraHandledException('Could not clone bundle: ' + cloneDebug);
+                ahe.setMessage('Could not clone bundle: ' + cloneDebug);
+                throw ahe;
+            }
+            // Standalone line fallback to DML is safe
             Id newId = cloneLineDirect(source);
             cloneAttributes(new Map<Id, Id>{ source.Id => newId });
             return newId;
@@ -1446,95 +1508,16 @@ public with sharing class MobileTleController {
         }
     }
 
+    /**
+     * Clone a standalone QuoteLineItem via DML using SObject.clone().
+     * Bundle cloning is not supported on orgs where the pricing procedure
+     * requires SubscriptionTermUnit (system-managed, not writable).
+     * The caller (cloneQuoteLine) prevents bundles from reaching this method.
+     */
     private static Id cloneViaPlaceQuote(QuoteLineItem source, List<QuoteLineItem> children) {
-        PlaceQuote.RecordResource quoteRecord =
-            new PlaceQuote.RecordResource(Quote.getSobjectType(), 'GET', source.QuoteId);
-        PlaceQuote.RecordWithReferenceRequest quoteRef =
-            new PlaceQuote.RecordWithReferenceRequest('refQuote', quoteRecord);
-
-        PlaceQuote.RecordResource qliRecord =
-            new PlaceQuote.RecordResource(QuoteLineItem.getSobjectType(), 'POST');
-        Map<String, Object> qliFields = new Map<String, Object>();
-        qliFields.put('QuoteId', '@{refQuote.id}');
-        qliFields.put('PricebookEntryId', source.PricebookEntryId);
-        if (source.Product2Id != null) {
-            qliFields.put('Product2Id', source.Product2Id);
-        }
-        qliFields.put('Quantity', source.Quantity);
-        qliFields.put('UnitPrice', source.UnitPrice);
-        if (source.Discount != null) {
-            qliFields.put('Discount', source.Discount);
-        }
-        if (source.BillingFrequency != null) {
-            qliFields.put('BillingFrequency', source.BillingFrequency);
-        }
-        if (String.isNotBlank(source.Description)) {
-            qliFields.put('Description', source.Description);
-        }
-        qliRecord.fieldValues = qliFields;
-        PlaceQuote.RecordWithReferenceRequest qliRef =
-            new PlaceQuote.RecordWithReferenceRequest('refNewQLI', qliRecord);
-
-        List<PlaceQuote.RecordWithReferenceRequest> records =
-            new List<PlaceQuote.RecordWithReferenceRequest>();
-        records.add(quoteRef);
-        records.add(qliRef);
-
-        // Clone children if bundle parent
-        Integer childIdx = 0;
-        for (QuoteLineItem child : children) {
-            PlaceQuote.RecordResource childRecord =
-                new PlaceQuote.RecordResource(QuoteLineItem.getSobjectType(), 'POST');
-            Map<String, Object> childFields = new Map<String, Object>();
-            childFields.put('QuoteId', '@{refQuote.id}');
-            childFields.put('ParentQuoteLineItemId', '@{refNewQLI.id}');
-            childFields.put('PricebookEntryId', child.PricebookEntryId);
-            if (child.Product2Id != null) {
-                childFields.put('Product2Id', child.Product2Id);
-            }
-            childFields.put('Quantity', child.Quantity);
-            childFields.put('UnitPrice', child.UnitPrice);
-            if (child.Discount != null) {
-                childFields.put('Discount', child.Discount);
-            }
-            if (child.BillingFrequency != null) {
-                childFields.put('BillingFrequency', child.BillingFrequency);
-            }
-            childRecord.fieldValues = childFields;
-            records.add(new PlaceQuote.RecordWithReferenceRequest('refChild' + childIdx, childRecord));
-            childIdx++;
-        }
-
-        PlaceQuote.GraphRequest graph = new PlaceQuote.GraphRequest('cloneLine', records);
-
-        PlaceQuote.ConfigurationOptionsInput cInput = new PlaceQuote.ConfigurationOptionsInput();
-        cInput.addDefaultConfiguration = true;
-        cInput.executeConfigurationRules = true;
-        cInput.validateAmendRenewCancel = false;
-        cInput.validateProductCatalog = true;
-
-        PlaceQuote.PlaceQuoteResponse resp =
-            PlaceQuote.PlaceQuoteRLMApexProcessor.execute(
-                PlaceQuote.PricingPreferenceEnum.System,
-                graph,
-                PlaceQuote.ConfigurationInputEnum.RunAndAllowErrors,
-                cInput
-            );
-
-        if (resp == null || resp.success != true) {
-            String errDetail = '';
-            if (resp != null && resp.responseError != null) {
-                List<String> msgs = new List<String>();
-                for (ConnectApi.PlaceQuoteErrorResponse er : resp.responseError) {
-                    msgs.add(er.message);
-                }
-                errDetail = String.join(msgs, '; ');
-            }
-            throw new AuraHandledException(
-                'PlaceQuote clone failed' + (String.isNotBlank(errDetail) ? ': ' + errDetail : '.')
-            );
-        }
-        return resp.quoteId;
+        QuoteLineItem newLine = source.clone(false, true);
+        Database.insert(newLine);
+        return newLine.Id;
     }
 
     private static Id cloneLineDirect(QuoteLineItem source) {
@@ -1559,7 +1542,7 @@ public with sharing class MobileTleController {
         Database.insert(newLine, AccessLevel.USER_MODE);
 
         // DML clone only copies the root line, not children. ParentQuoteLineItemId
-        // is not writeable via DML; only the PlaceQuote path supports bundle cloning.
+        // is not writeable via DML; only the RevSalesTrxn path supports bundle cloning.
         // Attribute cloning is handled by the caller (cloneQuoteLine).
         return newLine.Id;
     }
@@ -1632,6 +1615,19 @@ public with sharing class MobileTleController {
         // Resolve config flows for the products
         Map<Id, String> configFlowMap = resolveConfigFlowsByProduct(productIds);
 
+        // Detect products with attribute definitions (configurable even without flow)
+        Set<Id> productsWithAttributes = new Set<Id>();
+        try {
+            for (AggregateResult ar : [
+                SELECT Product2Id pid FROM ProductAttributeDefinition
+                WHERE Product2Id IN :productIds GROUP BY Product2Id
+            ]) {
+                productsWithAttributes.add((Id) ar.get('pid'));
+            }
+        } catch (Exception e) {
+            // ProductAttributeDefinition may not be accessible
+        }
+
         for (MobileProductCard card : cards) {
             if (String.isNotBlank(card.product2Id)) {
                 Id pid = (Id) card.product2Id;
@@ -1639,7 +1635,10 @@ public with sharing class MobileTleController {
                 card.isBundle = children != null && !children.isEmpty();
                 card.bundleChildCount = card.isBundle == true ? children.size() : 0;
                 card.bundleChildren = card.isBundle == true ? children : new List<BundleChildInfo>();
-                card.isConfigurable = configFlowMap.containsKey(pid);
+                // Configurable if has config flow, attribute definitions, or is a bundle
+                card.isConfigurable = configFlowMap.containsKey(pid)
+                    || productsWithAttributes.contains(pid)
+                    || card.isBundle == true;
             } else {
                 card.isBundle = false;
                 card.bundleChildCount = 0;
@@ -1650,9 +1649,9 @@ public with sharing class MobileTleController {
     }
 
     // ─── Add bundle to quote ─────────────────────────────────────────────────
-    // PlaceQuote with addDefaultConfiguration=true automatically creates
+    // RevSalesTrxn with addDefaultConfiguration=true automatically creates
     // the bundle parent AND its default child lines (from ProductRelatedComponent).
-    // We only need to call addQuoteLineWithModel for the parent — PlaceQuote
+    // We only need to call addQuoteLineWithModel for the parent — RevSalesTrxn
     // handles the rest. No manual child creation is needed.
 
     @AuraEnabled
@@ -1667,7 +1666,7 @@ public with sharing class MobileTleController {
             quantity = 1;
         }
 
-        // PlaceQuote creates the parent line and auto-adds default bundle
+        // RevSalesTrxn creates the parent line and auto-adds default bundle
         // children when addDefaultConfiguration = true (set in addLineViaPlaceQuote).
         return addQuoteLineWithModel(
             quoteId, product2Id, pricebookEntryId,
@@ -1867,6 +1866,7 @@ public with sharing class MobileTleController {
         SubscriptionTermInfo info = new SubscriptionTermInfo();
 
         // Determine selling model type
+        String sellingModelType = null;
         if (String.isBlank(productSellingModelId)) {
             return info;
         }
@@ -1876,14 +1876,35 @@ public with sharing class MobileTleController {
                 SELECT SellingModelType FROM ProductSellingModel
                 WHERE Id = :psmId WITH USER_MODE LIMIT 1
             ];
-            if (psmRows.isEmpty() || psmRows[0].SellingModelType != 'TermDefined') {
+            if (psmRows.isEmpty()) {
                 return info;
             }
+            sellingModelType = psmRows[0].SellingModelType;
         } catch (Exception e) {
             return info;
         }
 
-        info.isTermDefined = true;
+        info.isTermDefined = (sellingModelType == 'TermDefined');
+
+        // PeriodBoundary + ProrationPolicy only for TermDefined
+        if (info.isTermDefined) {
+            // Default PeriodBoundary — required by recent RCA releases.
+            info.periodBoundary = 'Anniversary';
+
+            // Resolve ProrationPolicy — look for the org's default policy
+            try {
+                List<ProrationPolicy> policies = [
+                    SELECT Id FROM ProrationPolicy
+                    WHERE Name = 'Default Proration Policy'
+                    WITH USER_MODE LIMIT 1
+                ];
+                if (!policies.isEmpty()) {
+                    info.prorationPolicyId = policies[0].Id;
+                }
+            } catch (Exception e) {
+                // ProrationPolicy may not exist in all orgs — proceed without
+            }
+        }
 
         // Query Quote for dates and term
         try {
@@ -1906,6 +1927,7 @@ public with sharing class MobileTleController {
             if (rows.isEmpty()) {
                 // Fallback to default term
                 info.subscriptionTerm = 12;
+                info.subscriptionTermUnit = 'Annual';
                 return info;
             }
             Quote q = rows[0];
@@ -1922,6 +1944,7 @@ public with sharing class MobileTleController {
                     if (info.subscriptionTerm == null || info.subscriptionTerm <= 0) {
                         info.subscriptionTerm = 12;
                     }
+                    info.subscriptionTermUnit = 'Annual';
                     return info;
                 }
             }
@@ -1939,12 +1962,14 @@ public with sharing class MobileTleController {
                     Decimal termMonths = (Decimal) q.get('RLM_TermMonths__c');
                     if (termMonths != null && termMonths > 0) {
                         info.subscriptionTerm = termMonths.intValue();
+                        info.subscriptionTermUnit = 'Annual';
                         info.endDate = sd.addMonths(info.subscriptionTerm);
                         return info;
                     }
                 }
                 // StartDate present but no RLM_TermMonths__c — default 12 months
                 info.subscriptionTerm = 12;
+                info.subscriptionTermUnit = 'Annual';
                 info.endDate = sd.addMonths(12);
                 return info;
             }
@@ -1954,6 +1979,7 @@ public with sharing class MobileTleController {
                 Decimal termMonths = (Decimal) q.get('RLM_TermMonths__c');
                 if (termMonths != null && termMonths > 0) {
                     info.subscriptionTerm = termMonths.intValue();
+                    info.subscriptionTermUnit = 'Annual';
                     return info;
                 }
             }
@@ -1963,6 +1989,7 @@ public with sharing class MobileTleController {
 
         // 4. Default: 12 months (1 year) for annual TermDefined
         info.subscriptionTerm = 12;
+        info.subscriptionTermUnit = 'Annual';
         return info;
     }
 
@@ -2469,9 +2496,9 @@ public with sharing class MobileTleController {
     }
 
     /**
-     * Save bundle configuration changes via PlaceQuote API.
+     * Save bundle configuration changes via RevSalesTrxn API.
      * Processes ADD, REMOVE, UPDATE actions for child QuoteLineItems.
-     * Handles QuoteLineItemAttribute DML separately after PlaceQuote.
+     * Handles QuoteLineItemAttribute DML separately after RevSalesTrxn.
      */
     @AuraEnabled
     public static BundleConfigState saveBundleConfiguration(
@@ -2502,7 +2529,7 @@ public with sharing class MobileTleController {
             else if (c.action == 'UPDATE_PARENT_ATTRIBUTES') parentAttrUpdates.add(c);
         }
 
-        // Step 1: DELETE removed lines via DML (PlaceQuote may not support DELETE method)
+        // Step 1: DELETE removed lines via DML (RevSalesTrxn may not support DELETE method)
         if (!removes.isEmpty()) {
             List<Id> removeIds = new List<Id>();
             for (ConfigChange r : removes) {
@@ -2520,11 +2547,11 @@ public with sharing class MobileTleController {
             }
         }
 
-        // Step 2: ADD new child lines via PlaceQuote (without ParentQuoteLineItemId,
+        // Step 2: ADD new child lines via RevSalesTrxn (without ParentQuoteLineItemId,
         //         which is system-managed and cannot be written by user code) and
         //         UPDATE existing child lines for quantity/price changes.
         //
-        //         After PlaceQuote creates the standalone children, we insert
+        //         After RevSalesTrxn creates the standalone children, we insert
         //         QuoteLineRelationship records via DML to establish the bundle
         //         parent-child link.  The platform auto-populates
         //         ParentQuoteLineItemId when a QuoteLineRelationship exists.
@@ -2583,7 +2610,7 @@ public with sharing class MobileTleController {
 
         // Resolve TermDefined subscription term info for the parent bundle's
         // selling model.  Child lines inherit the same term fields so that
-        // PlaceQuote's pricing procedure doesn't reject them with
+        // RevSalesTrxn's pricing procedure doesn't reject them with
         // "Specify either the end date or add the Subscription Term…"
         SubscriptionTermInfo bundleTermInfo = null;
         if (!adds.isEmpty()) {
@@ -2595,13 +2622,13 @@ public with sharing class MobileTleController {
         }
 
         // Collect QLIA records for existing child lines and parent attrs
-        // to merge into the same PlaceQuote graph as QLI changes (Step 2).
-        // ADD-action attrs are deferred to post-PlaceQuote DML since the child
+        // to merge into the same RevSalesTrxn graph as QLI changes (Step 2).
+        // ADD-action attrs are deferred to post-RevSalesTrxn DML since the child
         // QLI doesn't exist yet.
         Integer attrIdx = 0;
         Boolean hasAttrChanges = false;
-        List<PlaceQuote.RecordWithReferenceRequest> qliaRecords =
-            new List<PlaceQuote.RecordWithReferenceRequest>();
+        List<RevSalesTrxn.RecordWithReferenceRequest> qliaRecords =
+            new List<RevSalesTrxn.RecordWithReferenceRequest>();
         List<ConfigChange> addAttrChanges = new List<ConfigChange>(); // deferred ADD attrs
 
         // Existing child option attribute changes (UPDATE actions with attributes)
@@ -2619,30 +2646,31 @@ public with sharing class MobileTleController {
             for (AttributeChange ac : c.attributes) {
                 attrIdx++;
                 hasAttrChanges = true;
-                PlaceQuote.RecordResource qliaRecord;
+                RevSalesTrxn.RecordResource qliaRecord;
                 String refId = 'refAttr_' + attrIdx;
 
                 if (String.isNotBlank(ac.quoteLineItemAttributeId)) {
-                    qliaRecord = new PlaceQuote.RecordResource(
+                    qliaRecord = new RevSalesTrxn.RecordResource(
                         QuoteLineItemAttribute.getSobjectType(), 'PATCH',
                         Id.valueOf(ac.quoteLineItemAttributeId)
                     );
                 } else {
-                    qliaRecord = new PlaceQuote.RecordResource(
+                    qliaRecord = new RevSalesTrxn.RecordResource(
                         QuoteLineItemAttribute.getSobjectType(), 'POST'
                     );
                 }
 
-                Map<String, Object> qliaFields = new Map<String, Object>();
-                qliaFields.put('QuoteLineItemId', targetLineId);
-                qliaFields.put('AttributeDefinitionId', ac.attributeDefinitionId);
-                qliaFields.put('AttributeValue', ac.value);
-                if (String.isNotBlank(ac.picklistValueId)) {
-                    qliaFields.put('AttributePicklistValueId', ac.picklistValueId);
+                // QLIA PATCH: only send value fields, NOT QuoteLineItemId
+                if (String.isNotBlank(ac.quoteLineItemAttributeId)) {
+                    Map<String, Object> qliaFields = new Map<String, Object>();
+                    qliaFields.put('AttributeValue', ac.value);
+                    if (String.isNotBlank(ac.picklistValueId)) {
+                        qliaFields.put('AttributePicklistValueId', ac.picklistValueId);
+                    }
+                    qliaRecord.fieldValues = qliaFields;
+                    qliaRecords.add(new RevSalesTrxn.RecordWithReferenceRequest(refId, qliaRecord));
                 }
-                qliaRecord.fieldValues = qliaFields;
-
-                qliaRecords.add(new PlaceQuote.RecordWithReferenceRequest(refId, qliaRecord));
+                // New QLIA records (POST) are not supported via RevSalesTrxn
             }
         }
 
@@ -2655,49 +2683,42 @@ public with sharing class MobileTleController {
             for (AttributeChange ac : pac.attributes) {
                 attrIdx++;
                 hasAttrChanges = true;
-                PlaceQuote.RecordResource qliaRecord;
                 String refId = 'refParentAttr_' + attrIdx;
 
+                // QLIA PATCH only — skip POST (not supported via RevSalesTrxn)
                 if (String.isNotBlank(ac.quoteLineItemAttributeId)) {
-                    qliaRecord = new PlaceQuote.RecordResource(
+                    RevSalesTrxn.RecordResource qliaRecord = new RevSalesTrxn.RecordResource(
                         QuoteLineItemAttribute.getSobjectType(), 'PATCH',
                         Id.valueOf(ac.quoteLineItemAttributeId)
                     );
-                } else {
-                    qliaRecord = new PlaceQuote.RecordResource(
-                        QuoteLineItemAttribute.getSobjectType(), 'POST'
-                    );
+                    Map<String, Object> qliaFields = new Map<String, Object>();
+                    qliaFields.put('AttributeValue', ac.value);
+                    if (String.isNotBlank(ac.picklistValueId)) {
+                        qliaFields.put('AttributePicklistValueId', ac.picklistValueId);
+                    }
+                    qliaRecord.fieldValues = qliaFields;
+                    qliaRecords.add(new RevSalesTrxn.RecordWithReferenceRequest(refId, qliaRecord));
+                    hasAttrChanges = true;
                 }
-
-                Map<String, Object> qliaFields = new Map<String, Object>();
-                qliaFields.put('QuoteLineItemId', targetLineId);
-                qliaFields.put('AttributeDefinitionId', ac.attributeDefinitionId);
-                qliaFields.put('AttributeValue', ac.value);
-                if (String.isNotBlank(ac.picklistValueId)) {
-                    qliaFields.put('AttributePicklistValueId', ac.picklistValueId);
-                }
-                qliaRecord.fieldValues = qliaFields;
-
-                qliaRecords.add(new PlaceQuote.RecordWithReferenceRequest(refId, qliaRecord));
             }
         }
 
-        // Step 2: Single PlaceQuote call for QLI changes + QLIA records + pricing
+        // Step 2: Single RevSalesTrxn call for QLI changes + QLIA records + pricing
         if (!adds.isEmpty() || !updates.isEmpty() || hasAttrChanges) {
-            List<PlaceQuote.RecordWithReferenceRequest> records =
-                new List<PlaceQuote.RecordWithReferenceRequest>();
+            List<RevSalesTrxn.RecordWithReferenceRequest> records =
+                new List<RevSalesTrxn.RecordWithReferenceRequest>();
 
             // Quote reference — PATCH existing
-            PlaceQuote.RecordResource quoteRecord =
-                new PlaceQuote.RecordResource(Quote.getSobjectType(), 'PATCH', quoteId);
-            records.add(new PlaceQuote.RecordWithReferenceRequest('refQuote', quoteRecord));
+            RevSalesTrxn.RecordResource quoteRecord =
+                new RevSalesTrxn.RecordResource(Quote.getSobjectType(), 'PATCH', quoteId);
+            records.add(new RevSalesTrxn.RecordWithReferenceRequest('refQuote', quoteRecord));
 
             Integer refIdx = 0;
 
             // POST new child lines WITHOUT ParentQuoteLineItemId
             for (ConfigChange a : adds) {
-                PlaceQuote.RecordResource childRec =
-                    new PlaceQuote.RecordResource(QuoteLineItem.getSobjectType(), 'POST');
+                RevSalesTrxn.RecordResource childRec =
+                    new RevSalesTrxn.RecordResource(QuoteLineItem.getSobjectType(), 'POST');
                 Map<String, Object> childFields = new Map<String, Object>();
                 childFields.put('QuoteId', '@{refQuote.id}');
                 // ParentQuoteLineItemId intentionally omitted — system-managed field.
@@ -2717,7 +2738,7 @@ public with sharing class MobileTleController {
                     Map<String, Schema.SObjectField> qliFieldMap =
                         Schema.SObjectType.QuoteLineItem.fields.getMap();
                     if (bundleTermInfo.startDate != null && bundleTermInfo.endDate != null) {
-                        // Dates must be ISO-8601 strings (YYYY-MM-DD) for PlaceQuote serialization.
+                        // Dates must be ISO-8601 strings (YYYY-MM-DD) for RevSalesTrxn serialization.
                         String childStartStr = String.valueOf(bundleTermInfo.startDate).left(10);
                         String childEndStr = String.valueOf(bundleTermInfo.endDate).left(10);
                         if (qliFieldMap.containsKey('StartDate') &&
@@ -2735,9 +2756,22 @@ public with sharing class MobileTleController {
                             childFields.put('SubscriptionTerm', bundleTermInfo.subscriptionTerm);
                         }
                     }
+                    // PeriodBoundary + ProrationPolicyId for bundle child lines
+                    if (bundleTermInfo.periodBoundary != null) {
+                        if (qliFieldMap.containsKey('PeriodBoundary') &&
+                            qliFieldMap.get('PeriodBoundary').getDescribe().isCreateable()) {
+                            childFields.put('PeriodBoundary', bundleTermInfo.periodBoundary);
+                        }
+                    }
+                    if (bundleTermInfo.prorationPolicyId != null) {
+                        if (qliFieldMap.containsKey('ProrationPolicyId') &&
+                            qliFieldMap.get('ProrationPolicyId').getDescribe().isCreateable()) {
+                            childFields.put('ProrationPolicyId', bundleTermInfo.prorationPolicyId);
+                        }
+                    }
                 }
                 childRec.fieldValues = childFields;
-                records.add(new PlaceQuote.RecordWithReferenceRequest(
+                records.add(new RevSalesTrxn.RecordWithReferenceRequest(
                     'refAdd' + refIdx++, childRec
                 ));
             }
@@ -2745,7 +2779,7 @@ public with sharing class MobileTleController {
             // PATCH existing child lines (quantity/price changes)
             for (ConfigChange u : updates) {
                 if (String.isBlank(u.quoteLineItemId)) continue;
-                PlaceQuote.RecordResource qliRec = new PlaceQuote.RecordResource(
+                RevSalesTrxn.RecordResource qliRec = new RevSalesTrxn.RecordResource(
                     QuoteLineItem.getSobjectType(), 'PATCH', Id.valueOf(u.quoteLineItemId)
                 );
                 Map<String, Object> fields = new Map<String, Object>();
@@ -2756,7 +2790,7 @@ public with sharing class MobileTleController {
                     fields.put('UnitPrice', u.unitPrice);
                 }
                 qliRec.fieldValues = fields;
-                records.add(new PlaceQuote.RecordWithReferenceRequest(
+                records.add(new RevSalesTrxn.RecordWithReferenceRequest(
                     'refUpd' + refIdx++, qliRec
                 ));
             }
@@ -2764,35 +2798,32 @@ public with sharing class MobileTleController {
             // Merge QLIA records into the same graph
             records.addAll(qliaRecords);
 
-            PlaceQuote.ConfigurationOptionsInput cInput = new PlaceQuote.ConfigurationOptionsInput();
+            RevSalesTrxn.ConfigurationOptionsInput cInput = new RevSalesTrxn.ConfigurationOptionsInput();
             cInput.addDefaultConfiguration = false;
             cInput.executeConfigurationRules = true;
             cInput.validateAmendRenewCancel = false;
             cInput.validateProductCatalog = true;
 
-            PlaceQuote.GraphRequest graph = new PlaceQuote.GraphRequest('configBundle', records);
+            RevSalesTrxn.GraphRequest graph = new RevSalesTrxn.GraphRequest('configBundle', records);
 
             // Use Force pricing when attribute changes exist so repricing happens in one call
-            PlaceQuote.PricingPreferenceEnum pricePref = hasAttrChanges
-                ? PlaceQuote.PricingPreferenceEnum.Force
-                : PlaceQuote.PricingPreferenceEnum.System;
+            RevSalesTrxn.PricingPreferenceEnum pricePref = hasAttrChanges
+                ? RevSalesTrxn.PricingPreferenceEnum.FORCE
+                : RevSalesTrxn.PricingPreferenceEnum.SYSTEM;
 
-            PlaceQuote.PlaceQuoteResponse resp =
-                PlaceQuote.PlaceQuoteRLMApexProcessor.execute(
-                    pricePref,
+            RevSalesTrxn.PlaceSalesTransactionResponse resp =
+                RevSalesTrxn.PlaceSalesTransactionExecutor.execute(
                     graph,
-                    PlaceQuote.ConfigurationInputEnum.RunAndAllowErrors,
-                    cInput
+                    pricePref,
+                    RevSalesTrxn.ConfigurationExecutionEnum.SYSTEM,
+                    cInput,
+                    null
                 );
 
-            if (resp == null || resp.success != true) {
+            if (resp == null || resp.isSuccess != true) {
                 String errDetail = '';
-                if (resp != null && resp.responseError != null) {
-                    List<String> msgs = new List<String>();
-                    for (ConnectApi.PlaceQuoteErrorResponse er : resp.responseError) {
-                        msgs.add(er.message);
-                    }
-                    errDetail = String.join(msgs, '; ');
+                if (resp != null && resp.errorResponse != null) {
+                    errDetail = String.valueOf(resp.errorResponse);
                 }
                 throw new AuraHandledException(
                     'Configuration save failed' + (String.isNotBlank(errDetail) ? ': ' + errDetail : '.')
@@ -2801,7 +2832,7 @@ public with sharing class MobileTleController {
         }
 
         // Step 2b: Ensure QuoteLineRelationship records exist for newly-added children.
-        //          PlaceQuote may auto-create these via executeConfigurationRules;
+        //          RevSalesTrxn may auto-create these via executeConfigurationRules;
         //          only insert if missing to avoid "bundle component already exists" errors.
         if (!adds.isEmpty() && bundleRelTypeId != null) {
             // Find newly created QLIs (IDs not in the pre-existing snapshot)
@@ -2890,7 +2921,7 @@ public with sharing class MobileTleController {
     }
 
     /**
-     * Save attribute values on a QuoteLineItem and trigger a reprice via PlaceQuote.
+     * Save attribute values on a QuoteLineItem and trigger a reprice via RevSalesTrxn.
      * Used for standalone parent-level attribute edits.
      * @param quoteId          The Quote Id
      * @param quoteLineItemId  The target QuoteLineItem
@@ -2911,72 +2942,72 @@ public with sharing class MobileTleController {
             throw new AuraHandledException('No attribute changes provided.');
         }
 
-        // 1. Build PlaceQuote graph with QLIA records
-        List<PlaceQuote.RecordWithReferenceRequest> records =
-            new List<PlaceQuote.RecordWithReferenceRequest>();
+        // 1. Build RevSalesTrxn graph with QLIA records
+        List<RevSalesTrxn.RecordWithReferenceRequest> records =
+            new List<RevSalesTrxn.RecordWithReferenceRequest>();
 
         // Quote anchor
-        PlaceQuote.RecordResource sarQuoteRecord =
-            new PlaceQuote.RecordResource(Quote.getSobjectType(), 'PATCH', quoteId);
-        records.add(new PlaceQuote.RecordWithReferenceRequest('refQuote', sarQuoteRecord));
+        RevSalesTrxn.RecordResource sarQuoteRecord =
+            new RevSalesTrxn.RecordResource(Quote.getSobjectType(), 'PATCH', quoteId);
+        records.add(new RevSalesTrxn.RecordWithReferenceRequest('refQuote', sarQuoteRecord));
 
         // QLI anchor
-        PlaceQuote.RecordResource sarQliRecord =
-            new PlaceQuote.RecordResource(QuoteLineItem.getSobjectType(), 'PATCH', quoteLineItemId);
+        RevSalesTrxn.RecordResource sarQliRecord =
+            new RevSalesTrxn.RecordResource(QuoteLineItem.getSobjectType(), 'PATCH', quoteLineItemId);
         sarQliRecord.fieldValues = new Map<String, Object>();
-        records.add(new PlaceQuote.RecordWithReferenceRequest('refQLI', sarQliRecord));
+        records.add(new RevSalesTrxn.RecordWithReferenceRequest('refQLI', sarQliRecord));
 
         // QLIA records
         Integer idx = 0;
         for (AttributeChange ac : attrChanges) {
             idx++;
-            PlaceQuote.RecordResource qliaRecord;
+            RevSalesTrxn.RecordResource qliaRecord;
             if (String.isNotBlank(ac.quoteLineItemAttributeId)) {
-                qliaRecord = new PlaceQuote.RecordResource(
+                qliaRecord = new RevSalesTrxn.RecordResource(
                     QuoteLineItemAttribute.getSobjectType(), 'PATCH',
                     Id.valueOf(ac.quoteLineItemAttributeId)
                 );
             } else {
-                qliaRecord = new PlaceQuote.RecordResource(
+                qliaRecord = new RevSalesTrxn.RecordResource(
                     QuoteLineItemAttribute.getSobjectType(), 'POST'
                 );
             }
-            Map<String, Object> fields = new Map<String, Object>();
-            fields.put('QuoteLineItemId', quoteLineItemId);
-            fields.put('AttributeDefinitionId', ac.attributeDefinitionId);
-            fields.put('AttributeValue', ac.value);
-            if (String.isNotBlank(ac.picklistValueId)) {
-                fields.put('AttributePicklistValueId', ac.picklistValueId);
+            // QLIA: only PATCH existing via RevSalesTrxn (no QuoteLineItemId).
+            // New QLIA records are not supported via RevSalesTrxn POST —
+            // they must be created via insertImmediate() after the graph.
+            if (String.isNotBlank(ac.quoteLineItemAttributeId)) {
+                Map<String, Object> fields = new Map<String, Object>();
+                fields.put('AttributeValue', ac.value);
+                if (String.isNotBlank(ac.picklistValueId)) {
+                    fields.put('AttributePicklistValueId', ac.picklistValueId);
+                }
+                qliaRecord.fieldValues = fields;
+                records.add(new RevSalesTrxn.RecordWithReferenceRequest('refAttr_' + idx, qliaRecord));
             }
-            qliaRecord.fieldValues = fields;
-            records.add(new PlaceQuote.RecordWithReferenceRequest('refAttr_' + idx, qliaRecord));
         }
 
-        // 2. Execute PlaceQuote with Force pricing
-        PlaceQuote.GraphRequest graph = new PlaceQuote.GraphRequest('attrReprice', records);
+        // 2. Execute RevSalesTrxn with Force pricing
+        RevSalesTrxn.GraphRequest graph = new RevSalesTrxn.GraphRequest('attrReprice', records);
 
-        PlaceQuote.ConfigurationOptionsInput cInput = new PlaceQuote.ConfigurationOptionsInput();
+        RevSalesTrxn.ConfigurationOptionsInput cInput = new RevSalesTrxn.ConfigurationOptionsInput();
         cInput.addDefaultConfiguration = false;
         cInput.executeConfigurationRules = false;
         cInput.validateAmendRenewCancel = false;
         cInput.validateProductCatalog = false;
 
-        PlaceQuote.PlaceQuoteResponse resp =
-            PlaceQuote.PlaceQuoteRLMApexProcessor.execute(
-                PlaceQuote.PricingPreferenceEnum.Force,
+        RevSalesTrxn.PlaceSalesTransactionResponse resp =
+            RevSalesTrxn.PlaceSalesTransactionExecutor.execute(
                 graph,
-                PlaceQuote.ConfigurationInputEnum.Skip,
-                cInput
+                RevSalesTrxn.PricingPreferenceEnum.FORCE,
+                RevSalesTrxn.ConfigurationExecutionEnum.SKIP,
+                cInput,
+                null
             );
 
-        if (resp == null || resp.success != true) {
+        if (resp == null || resp.isSuccess != true) {
             String errDetail = '';
-            if (resp != null && resp.responseError != null) {
-                List<String> msgs = new List<String>();
-                for (ConnectApi.PlaceQuoteErrorResponse er : resp.responseError) {
-                    msgs.add(er.message);
-                }
-                errDetail = String.join(msgs, '; ');
+            if (resp != null && resp.errorResponse != null) {
+                errDetail = String.valueOf(resp.errorResponse);
             }
             throw new AuraHandledException('Attribute save failed: ' + errDetail);
         }
@@ -3032,58 +3063,55 @@ public with sharing class MobileTleController {
     }
 
     /**
-     * Force a reprice on a QuoteLineItem via PlaceQuote PATCH.
+     * Force a reprice on a QuoteLineItem via RevSalesTrxn PATCH.
      * Uses Force pricing preference and Skip configuration.
      */
     private static void repriceViaPlaceQuote(Id quoteId, Id quoteLineItemId) {
         // 1. Quote reference — PATCH existing quote
-        PlaceQuote.RecordResource quoteRecord =
-            new PlaceQuote.RecordResource(Quote.getSobjectType(), 'PATCH', quoteId);
-        PlaceQuote.RecordWithReferenceRequest quoteRef =
-            new PlaceQuote.RecordWithReferenceRequest('refQuote', quoteRecord);
+        RevSalesTrxn.RecordResource quoteRecord =
+            new RevSalesTrxn.RecordResource(Quote.getSobjectType(), 'PATCH', quoteId);
+        RevSalesTrxn.RecordWithReferenceRequest quoteRef =
+            new RevSalesTrxn.RecordWithReferenceRequest('refQuote', quoteRecord);
 
         // 2. QuoteLineItem — PATCH existing line (no field changes, just trigger reprice)
-        PlaceQuote.RecordResource qliRecord = new PlaceQuote.RecordResource(
+        RevSalesTrxn.RecordResource qliRecord = new RevSalesTrxn.RecordResource(
             QuoteLineItem.getSobjectType(), 'PATCH', quoteLineItemId
         );
         // No field values needed — the PATCH with Force pricing triggers reprice
         qliRecord.fieldValues = new Map<String, Object>();
-        PlaceQuote.RecordWithReferenceRequest qliRef =
-            new PlaceQuote.RecordWithReferenceRequest('refQLI', qliRecord);
+        RevSalesTrxn.RecordWithReferenceRequest qliRef =
+            new RevSalesTrxn.RecordWithReferenceRequest('refQLI', qliRecord);
 
         // 3. Build graph
-        List<PlaceQuote.RecordWithReferenceRequest> records =
-            new List<PlaceQuote.RecordWithReferenceRequest>();
+        List<RevSalesTrxn.RecordWithReferenceRequest> records =
+            new List<RevSalesTrxn.RecordWithReferenceRequest>();
         records.add(quoteRef);
         records.add(qliRef);
 
-        PlaceQuote.GraphRequest graph = new PlaceQuote.GraphRequest('repriceAttr', records);
+        RevSalesTrxn.GraphRequest graph = new RevSalesTrxn.GraphRequest('repriceAttr', records);
 
         // 4. Configuration options — skip configuration, force reprice
-        PlaceQuote.ConfigurationOptionsInput cInput = new PlaceQuote.ConfigurationOptionsInput();
+        RevSalesTrxn.ConfigurationOptionsInput cInput = new RevSalesTrxn.ConfigurationOptionsInput();
         cInput.addDefaultConfiguration = false;
         cInput.executeConfigurationRules = false;
         cInput.validateAmendRenewCancel = false;
         cInput.validateProductCatalog = false;
 
         // 5. Execute with Force pricing to trigger reprice
-        PlaceQuote.PlaceQuoteResponse resp =
-            PlaceQuote.PlaceQuoteRLMApexProcessor.execute(
-                PlaceQuote.PricingPreferenceEnum.Force,
+        RevSalesTrxn.PlaceSalesTransactionResponse resp =
+            RevSalesTrxn.PlaceSalesTransactionExecutor.execute(
                 graph,
-                PlaceQuote.ConfigurationInputEnum.Skip,
-                cInput
+                RevSalesTrxn.PricingPreferenceEnum.FORCE,
+                RevSalesTrxn.ConfigurationExecutionEnum.SKIP,
+                cInput,
+                null
             );
 
         // 6. Check response — non-fatal, log but don't throw
-        if (resp == null || resp.success != true) {
+        if (resp == null || resp.isSuccess != true) {
             String errDetail = '';
-            if (resp != null && resp.responseError != null) {
-                List<String> msgs = new List<String>();
-                for (ConnectApi.PlaceQuoteErrorResponse er : resp.responseError) {
-                    msgs.add(er.message);
-                }
-                errDetail = String.join(msgs, '; ');
+            if (resp != null && resp.errorResponse != null) {
+                errDetail = String.valueOf(resp.errorResponse);
             }
             System.debug(LoggingLevel.WARN, 'repriceViaPlaceQuote failed: ' + errDetail);
         }
@@ -3093,7 +3121,7 @@ public with sharing class MobileTleController {
      * Resolve PricebookEntries for a set of product IDs using the quote's pricebook.
      * In multi-currency orgs, filters by the Quote's CurrencyIsoCode so that the
      * returned PBEs match the Quote currency (prevents "currency code is different"
-     * errors from PlaceQuote).
+     * errors from RevSalesTrxn).
      */
     private static Map<Id, PricebookEntry> getChildPricebookEntries(Id quoteId, Set<Id> productIds) {
         Map<Id, PricebookEntry> result = new Map<Id, PricebookEntry>();

@@ -197,17 +197,33 @@ export default class MobileTleProductCard extends LightningElement {
                     sellingModelId: this.selectedSellingModelId || null
                 });
             }
-            this.dispatchEvent(new CustomEvent('productadded', {
-                detail: {
-                    productName: this.productName,
-                    quantity: this.quantity,
-                    newLineId,
-                    isBundle: this.isBundle,
-                    childCount: this.bundleChildCount
-                },
-                bubbles: true,
-                composed: true
-            }));
+            // Bundles and configurable products → auto-open configurator
+            if (this.isBundle || this.isConfigurable) {
+                this.dispatchEvent(new CustomEvent('productaddedconfigure', {
+                    detail: {
+                        productName: this.productName,
+                        quantity: this.quantity,
+                        newLineId,
+                        isBundle: this.isBundle,
+                        isConfigurable: this.isConfigurable,
+                        childCount: this.bundleChildCount
+                    },
+                    bubbles: true,
+                    composed: true
+                }));
+            } else {
+                this.dispatchEvent(new CustomEvent('productadded', {
+                    detail: {
+                        productName: this.productName,
+                        quantity: this.quantity,
+                        newLineId,
+                        isBundle: this.isBundle,
+                        childCount: this.bundleChildCount
+                    },
+                    bubbles: true,
+                    composed: true
+                }));
+            }
             // Reset
             this.quantity = 1;
         } catch (e) {

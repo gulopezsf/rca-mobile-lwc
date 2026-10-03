@@ -112,9 +112,16 @@ export default class MobileTransactionLineEditor extends NavigationMixin(Lightni
 
     get showConfigureAction() {
         // Show "Configure" for configurable products or bundle parents
-        // (falls back to default org flow ProductConfig if no specific flow assigned)
         const line = this.actionSheetLine;
         return line && (line.isConfigurable || line.isBundleParent);
+    }
+
+    get showCloneAction() {
+        // Hide Clone for bundle parents — PlaceQuote cannot clone bundles
+        // on orgs where the pricing procedure requires SubscriptionTermUnit
+        // (system-managed field, not writable). Standalone lines clone fine.
+        const line = this.actionSheetLine;
+        return !line || !line.isBundleParent;
     }
 
     // ─── Lifecycle ──────────────────────────────────────────────────────────
@@ -199,6 +206,19 @@ export default class MobileTransactionLineEditor extends NavigationMixin(Lightni
         this.toast(LBL_SUCCESS, msg, 'success');
         // Refresh in background
         await this.refreshAfterAdd(newLineId);
+    }
+
+    async handleProductAddedConfigure(event) {
+        const { productName, newLineId, isBundle, childCount } = event.detail;
+        // Close product browser
+        this.showProductBrowser = false;
+        const msg = isBundle
+            ? fmt(LBL_BUNDLE_ADDED, productName)
+            : fmt(LBL_PRODUCT_ADDED, productName);
+        this.toast(LBL_SUCCESS, msg, 'success');
+        // Refresh lines then auto-open configurator for the new line
+        await this.loadLines();
+        this.openConfigurator(newLineId);
     }
 
     handleProductAddError(event) {

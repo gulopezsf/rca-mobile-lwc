@@ -8,4 +8,9 @@
         <field>QuoteLineItem.ParentQuoteLineItemId</field>
         <readable>true</readable>
     </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>QuoteLineItem.SubscriptionTermUnit</field>
+        <readable>true</readable>
+    </fieldPermissions>
 </PermissionSet>

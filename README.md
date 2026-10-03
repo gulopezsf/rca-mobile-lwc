@@ -2,7 +2,7 @@
 
 > A mobile-first Lightning Web Component (LWC) for quoting, pricing, and bundle configuration in **Revenue Cloud Advanced (RCA)**.
 
-**Version:** 1.4
+**Version:** 2.1
 **API Version:** 66.0
 **Package Id:** `04tJ9000000xhee`
 
@@ -19,7 +19,8 @@
 | **Revenue Cloud Advanced license** | The org must have RCA (also known as Agentforce Revenue Management) enabled and provisioned. Standard Sales Cloud / SDO trial orgs do **not** include RCA. |
 | **PlaceQuote Apex API** | The `PlaceQuote` namespace must be accessible. This provides `PlaceQuote.PlaceQuoteRLMApexProcessor`, `PlaceQuote.GraphRequest`, and all related classes used for pricing and configuration. |
 | **RCA sObjects** | `QuoteLineItemAttribute` — stores bundle attribute values per quote line. `QuoteLineRelationship` — links parent/child bundle quote lines. `ProductSellingModel` — defines selling model (one-time, evergreen, term-defined). |
-| **RCA fields on QuoteLineItem** | `ParentQuoteLineItemId` — parent reference for bundle child lines. `BillingFrequency` — billing cadence for term-based products. `ProductSellingModelId` — link to the selling model. `NetUnitPrice` — calculated net price per unit. |
+| **RCA fields on QuoteLineItem** | `ParentQuoteLineItemId` — parent reference for bundle child lines. `BillingFrequency` — billing cadence for term-based products. `ProductSellingModelId` — link to the selling model. `NetUnitPrice` — calculated net price per unit. `PeriodBoundary` — proration period alignment (mandatory for TermDefined products). |
+| **ProrationPolicy** | A `ProrationPolicy` record (e.g. "Default Proration Policy") must exist in the org for TermDefined product pricing. |
 
 ### Compatible Org Types
 
@@ -44,6 +45,8 @@ Run through this checklist **before** attempting installation:
 - [ ] **QuoteLineItemAttribute** object exists (Object Manager → search for "QuoteLineItemAttribute")
 - [ ] **QuoteLineRelationship** object exists (Object Manager → search for "QuoteLineRelationship")
 - [ ] **ProductSellingModel** object exists (Object Manager → search for "ProductSellingModel")
+- [ ] **ProrationPolicy** record exists (for TermDefined products — search for "Default Proration Policy" in Setup)
+- [ ] **QuoteLineItem** has `PeriodBoundary` field (mandatory for TermDefined selling model products since recent RCA releases)
 
 > **Quick validation:** If any of the above items fail, the org does **not** have RCA and this package cannot be installed. Contact your Salesforce account team to enable Revenue Cloud Advanced, or use an RCA-provisioned demo/sandbox org.
 
@@ -113,6 +116,8 @@ The component follows a **PlaceQuote-Only + SOQL-Only** architecture:
 | `docs/recipes/bundle-configuration.md` | Bundle configuration patterns |
 | `docs/recipes/mobile-lwc-architecture.md` | Mobile LWC architecture guide |
 | `docs/references/PlaceQuote in RCA Super Reference.md` | Complete PlaceQuote API reference |
+| `docs/LESSONS_LEARNED.md` | Accumulated learnings and gotchas |
+| `CHANGELOG.md` | Full version history with details |
 
 ## Version History
 
@@ -123,6 +128,10 @@ The component follows a **PlaceQuote-Only + SOQL-Only** architecture:
 | 1.2 | 2026-06-12 | Repricing fix (PlaceQuote PATCH), clone attributes |
 | 1.3 | 2026-06-13 | CurrencyIsoCode fallback for multi-currency orgs |
 | 1.4 | 2026-06-15 | Date serialization fix (yyyy-MM-dd), TermDefined selling model support |
+| 1.5 | 2026-06-26 | Bundle detection fix, currency handling, Roig Arena compatibility |
+| 2.0 | 2026-06-30 | Bundle attribute configuration UI, attribute persistence |
+| 2.0.1 | 2026-06-30 | Bug fix release — 10 fixes, attribute persistence via PlaceQuote |
+| 2.1 | 2026-10-02 | PeriodBoundary + ProrationPolicy fix for TermDefined products |
 
 ---
 

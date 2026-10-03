@@ -87,6 +87,7 @@
             default-page-size={defaultPageSize}
             onclose={handleCloseProductBrowser}
             onproductadded={handleProductAdded}
+            onproductaddedconfigure={handleProductAddedConfigure}
             onproductadderror={handleProductAddError}
         ></c-mobile-tle-product-browser>
     </template>
@@ -101,12 +102,14 @@
                         class="slds-m-right_small"></lightning-icon>
                     {label.viewDetail}
                 </button>
-                <button type="button" class="mtle-action-item" onclick={handleActionSelect}
-                    data-action="clone">
-                    <lightning-icon icon-name="utility:copy" size="x-small"
-                        class="slds-m-right_small"></lightning-icon>
-                    {label.cloneLine}
-                </button>
+                <template if:true={showCloneAction}>
+                    <button type="button" class="mtle-action-item" onclick={handleActionSelect}
+                        data-action="clone">
+                        <lightning-icon icon-name="utility:copy" size="x-small"
+                            class="slds-m-right_small"></lightning-icon>
+                        {label.cloneLine}
+                    </button>
+                </template>
                 <template if:true={showConfigureAction}>
                     <button type="button" class="mtle-action-item" onclick={handleActionSelect}
                         data-action="configure">
